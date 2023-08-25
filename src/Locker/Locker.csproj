@@ -1,0 +1,79 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Locker is a .NET 4.6.1+ client, and a portable class library for the Locker Secret.(Official Library)</Description>
+        <PackageId>CyStack.Locker.Secret</PackageId>
+        <Version>1.0.0</Version>
+        <LangVersion>11</LangVersion>
+        <Authors>CyStack</Authors>
+        <PackageTags>Locker</PackageTags>
+        <TargetFrameworks>net5.0;net6.0;netcoreapp3.1;netstandard2.0;net461;net7.0</TargetFrameworks>
+        <PackageLicenseFile>LICENSE</PackageLicenseFile>
+        <PublishRepositoryUrl>false</PublishRepositoryUrl>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <EmbedUntrackedSources>true</EmbedUntrackedSources>
+        <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
+        <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+        <CheckEolTargetFramework>false</CheckEolTargetFramework>
+        <SignAssembly>True</SignAssembly>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="dotenv.net" Version="3.1.2"/>
+        <PackageReference Include="DotNetEnv" Version="2.5.0"/>
+        <PackageReference Include="System.IO.FileSystem.AccessControl" Version="5.0.0"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Folder Include="Binary\"/>
+    </ItemGroup>
+    <ItemGroup>
+        <Content Include="Binary\**">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+    <ItemGroup>
+        <None Remove="App.config"/>
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="All"/>
+    </ItemGroup>
+    <ItemGroup Condition="'$(TargetFramework)' == 'net5.0'">
+        <PackageReference Include="Newtonsoft.Json" Version="12.0.3"/>
+        <PackageReference Include="System.Configuration.ConfigurationManager" Version="5.0.0"/>
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)' == 'net6.0'">
+        <PackageReference Include="Newtonsoft.Json" Version="12.0.3"/>
+        <PackageReference Include="System.Configuration.ConfigurationManager" Version="6.0.0"/>
+    </ItemGroup>
+    <ItemGroup Condition="'$(TargetFramework)' == 'net7.0'">
+        <PackageReference Include="Newtonsoft.Json" Version="12.0.3"/>
+        <PackageReference Include="System.Configuration.ConfigurationManager" Version="7.0.0"/>
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)' == 'netcoreapp3.1'">
+        <PackageReference Include="Newtonsoft.Json" Version="12.0.3"/>
+        <PackageReference Include="System.Configuration.ConfigurationManager" Version="4.7.0"/>
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+        <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="1.1.0"/>
+        <PackageReference Include="Newtonsoft.Json" Version="11.0.1"/>
+        <PackageReference Include="System.Configuration.ConfigurationManager" Version="4.5.0"/>
+    </ItemGroup>
+
+    <ItemGroup Condition=" '$(TargetFramework)' == 'net461' ">
+        <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="1.1.0"/>
+        <PackageReference Include="Newtonsoft.Json" Version="9.0.1"/>
+        <PackageReference Include="System.Runtime.InteropServices.RuntimeInformation" Version="4.3.0"/>
+        <Reference Include="System.Configuration"/>
+        <Reference Include="System.Net.Http"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="..\..\LICENSE" Pack="true" PackagePath=""/>
+    </ItemGroup>
+
+</Project>
