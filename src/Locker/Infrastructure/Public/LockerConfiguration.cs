@@ -11,7 +11,8 @@
     public class LockerConfiguration
     {
         private string _apiBase;
-        private string _accessKey;
+        private string _accessKeyId;
+        private string _accessKeySecret;
         private string _apiVersion;
         private Dictionary<string, string> _headers = new Dictionary<string, string>();
 
@@ -41,11 +42,13 @@
             }
         }
 
-        public void Init(string apiBase = null, string accessKey = null, string apiVersion = null,
+        public void Init(string apiBase = null, string accessKeyId = null, string accessKeySecret = null,
+            string apiVersion = null,
             Dictionary<string, string> headers = null, string envPath = null)
         {
             _apiBase = apiBase;
-            _accessKey = accessKey;
+            _accessKeyId = accessKeyId;
+            _accessKeySecret = accessKeySecret;
             _apiVersion = apiVersion;
             _headers = headers;
             if (envPath != null)
@@ -78,7 +81,6 @@
             {
                 if (string.IsNullOrEmpty(_apiBase))
                 {
-                    //
                     _apiBase = Env.GetString("LockerApiBase");
                 }
 
@@ -87,22 +89,40 @@
             set => _apiBase = value;
         }
 
-        /// <summary>Gets or sets the Access key.</summary>
+        /// <summary>Gets or sets the Access key id.</summary>
         /// <remarks>
-        /// You can also set the Access key using the <c>LockerAccessKey</c> key in .env file
+        /// You can also set the Access key id using the <c>LockerAccessKeyId</c> key in .env file
         /// </remarks>
-        public string AccessKey
+        public string AccessKeyId
         {
             get
             {
-                if (string.IsNullOrEmpty(_accessKey))
+                if (string.IsNullOrEmpty(_accessKeyId))
                 {
-                    _accessKey = Env.GetString("LockerAccessKey");
+                    _accessKeyId = Env.GetString("LockerAccessKeyId");
                 }
 
-                return _accessKey;
+                return _accessKeyId;
             }
-            set => _accessKey = value;
+            set => _accessKeyId = value;
+        }
+
+        /// <summary>Gets or sets the Access key secret.</summary>
+        /// <remarks>
+        /// You can also set the Access key secret using the <c>LockerAccessKeySecret</c> key in .env file
+        /// </remarks>
+        public string AccessKeySecret
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(_accessKeySecret))
+                {
+                    _accessKeySecret = Env.GetString("LockerAccessKeySecret");
+                }
+
+                return _accessKeySecret;
+            }
+            set => _accessKeySecret = value;
         }
 
         /// <summary>Gets or sets the API version.</summary>

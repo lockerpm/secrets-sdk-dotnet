@@ -9,17 +9,20 @@
 
     public class BinaryAdapter
     {
-        private string _accessKey;
+        private string _accessKeyId;
+        private string _accessKeySecret;
         private string _apiBase;
         private string _apiVersion;
         private Dictionary<string, string> _headers;
         private PlatformID _systemPlatform;
 
-        public BinaryAdapter(string accessKey = null, string apiBase = null, string apiVersion = null,
+        public BinaryAdapter(string accessKeyId = null, string accessKeySecret = null, string apiBase = null,
+            string apiVersion = null,
             Dictionary<string, string> headers = null)
         {
             LockerConfiguration config = LockerConfiguration.Instance;
-            this._accessKey = accessKey;
+            this._accessKeyId = accessKeyId;
+            this._accessKeySecret = accessKeySecret;
             this._apiBase = apiBase ?? config.ApiBase;
             this._apiVersion = apiVersion ?? config.ApiVersion;
             this._headers = headers ?? config.Headers;
@@ -85,18 +88,19 @@
                 this.MakeExecutable(binaryFile);
             }
 
-            string myAccessKey = this._accessKey ?? LockerConfiguration.Instance.AccessKey;
-            if (myAccessKey == "")
+            string myAccessKeyId = this._accessKeyId ?? LockerConfiguration.Instance.AccessKeyId;
+            string myAccessKeySecret = this._accessKeyId ?? LockerConfiguration.Instance.AccessKeySecret;
+            if (myAccessKeyId == null || myAccessKeySecret == null)
             {
                 throw new AuthenticationError(
-                    "No Access key provided." +
-                    "(HINT: set your API key using LockerConfiguration.AccessKey = <ACCESS-KEY>). " +
+                    "No Access key id or Access key secret provided." +
+                    "(HINT: set your API key using LockerConfiguration.AccessKeyId= <ACCESS-KEY-ID>) " +
                     "You can generate Access Key from the Locker Secret web interface.");
             }
 
             string defaultUserAgent = $"CShap{System.Environment.Version}";
             string arguments =
-                $"{cli} --access-key \"{myAccessKey}\" --api-base {this._apiBase} --client {defaultUserAgent}";
+                $"{cli} --access-key-id \"{myAccessKeyId}\" --access-key-secret \"{myAccessKeySecret}\" --api-base {this._apiBase} --client {defaultUserAgent}";
             string? postData = null;
             if (cli.Contains("get") || cli.Contains("delete"))
             {
@@ -142,18 +146,6 @@
 
             // Start the process
             process.Start();
-
-            // Wait for the process to complete or until timeout
-            // while (!process.WaitForExit(1000))
-            // {
-            //     // Check if the timeout has been reached
-            //     if ((DateTime.Now - startTime).TotalSeconds > timeout)
-            //     {
-            //         // Terminate the process
-            //         process.Kill();
-            //         break;
-            //     }
-            // }
 
             string output = process.StandardOutput.ReadToEnd();
             // string error = process.StandardError.ReadToEnd();

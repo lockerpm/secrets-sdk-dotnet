@@ -65,7 +65,7 @@
         {
             requestOptions = requestOptions ?? new RequestOptions();
             BinaryAdapter binaryExecutor = new BinaryAdapter(
-                accessKey: requestOptions.AccessKey,
+                accessKeyId: requestOptions.AccessKey,
                 apiBase: requestOptions.ApiBase,
                 apiVersion: requestOptions.ApiVersion);
             string resData = binaryExecutor.Call(cli: cli_, timeout: requestOptions.Timeout,
