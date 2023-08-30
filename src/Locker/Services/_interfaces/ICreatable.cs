@@ -7,6 +7,6 @@
         where TEntity : ILockerEntity
         where TOptions : BaseOptions, new()
     {
-        TEntity? Create(TOptions createOptions, RequestOptions requestOptions = null);
+        object Create(TOptions createOptions, RequestOptions requestOptions = null);
     }
 }

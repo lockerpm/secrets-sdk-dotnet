@@ -10,7 +10,6 @@
 
         [JsonProperty("description")] public string Description { get; set; }
 
-        [JsonProperty("environment_id")] public string EnvironemntId { get; set; }
-        [JsonProperty("environment_name")] public string EnvironmentName { get; set; }
+        [JsonProperty("environment_name")] public string EnvironemntName { get; set; } = null;
     }
 }

@@ -1,4 +1,4 @@
-# Locker Secret Python SDK
+# Locker Secret .NET SDK
 
 <p align="center">
   <img src="https://cystack.net/images/logo-black.svg" alt="CyStack" width="50%"/>
@@ -7,13 +7,13 @@
 
 ---
 
-The Locker Secret Python SDK provides convenient access to the Locker Secret API from applications written in the
-Python language. It includes a pre-defined set of classes for API resources that initialize themselves dynamically
+The Locker Secret .Net SDK provides convenient access to the Locker Secret API from applications written in the
+C# language. It includes a pre-defined set of classes for API resources that initialize themselves dynamically
 from API responses which makes it compatible with a wide range of versions of the Locker Secret API.
 
 ## The Developer - CyStack
 
-The Locker Secret Python SDK is developed by CyStack, one of the leading cybersecurity companies in Vietnam.
+The Locker Secret .NET SDK is developed by CyStack, one of the leading cybersecurity companies in Vietnam.
 CyStack is a member of Vietnam Information Security Association (VNISA) and Vietnam Association of CyberSecurity
 Product Development. CyStack is a partner providing security solutions and services for many large domestic and
 international enterprises.
@@ -28,7 +28,7 @@ The documentation will be updated later.
 
 ## Requirements
 
-- Python 3.6+
+- .NET >  3.+
 
 ## Installation
 
@@ -64,7 +64,7 @@ From within Visual Studio:
 ### Set up access key
 
 The SDK needs to be configured with your access key which is available in your Locker Secret Dashboard.
-Initialize the `access_key` to its value.
+Initialize the `access_key_id` and `access_key_secret` to its value.
 You also need to set `api_base` value (default is `https://secrets-core.locker.io`).
 
 If you need to set your custom headers, you also need to set `headers` value in the `options` param:
@@ -73,7 +73,8 @@ If you need to set your custom headers, you also need to set `headers` value in 
 using Locker;
 
 
-string accessKey = "your_access_key";
+string accessKeyId = "your_access_key_id";
+string accessKeySecret = "your_access_key_secret";
 string apiBase = "your_api_base";
 Dictionary<string, string> headers = new Dictionary<string, string>()
 {
@@ -81,12 +82,13 @@ Dictionary<string, string> headers = new Dictionary<string, string>()
     { "CF-Access-Client-Secret", "your_cf_access_client_secret" }
 };
 LockerConfiguration.Instance.Init(
-    accessKey: accessKey,
+    accessKeyId: accessKeyId,
+    accessKeySecret: accessKeySecret,
     apiBase: apiBase,
     headers: headers
 );
 
-// setting by .evn file
+// setting by .env file
 LockerConfiguration.Instance.Init(
     envPath: "your_env_file_path"
 );
@@ -237,7 +239,7 @@ dotnet format src/Locker.sln
 
 ## Reporting security issues
 
-We take the security and our users' trust very seriously. If you found a security issue in Locker SDK Python, please
+We take the security and our users' trust very seriously. If you found a security issue in Locker SDK .NET, please
 report the issue by contacting us at <contact@locker.io>. Do not file an issue on the tracker.
 
 ## Contributing

@@ -8,6 +8,6 @@ namespace Locker
         where TEntity : ILockerEntity, IHasId
         where TOptions : ListOptions, new()
     {
-        LockerList<TEntity>? List(TOptions listOptions = null, RequestOptions requestOptions = null);
+        object List(TOptions listOptions = null, RequestOptions requestOptions = null);
     }
 }

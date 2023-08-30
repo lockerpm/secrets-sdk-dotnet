@@ -4,6 +4,6 @@ namespace Locker
         where TEntity : ILockerEntity, IHasId
         where TOptions : BaseOptions, new()
     {
-        TEntity? Update(string id, TOptions updateOptions, RequestOptions requestOptions = null);
+        object Modify(string id, TOptions updateOptions, RequestOptions requestOptions = null);
     }
 }

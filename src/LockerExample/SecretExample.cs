@@ -6,14 +6,14 @@
     {
         private static readonly SecretService Service = new Locker.SecretService();
 
-        public static LockerList<Secret> ListSecret()
+        public static object ListSecret()
         {
             var options = new Locker.SecretListOptions()
             {
             };
             var requestOption = new RequestOptions()
             {
-                // AccessKey = "HTVRNF70FIVK:BvafRVekop1I8gSaw6DY6LZLHXp+dcdjG5VTKNQi6LA="
+                IsJson = false
             };
 
             var secrets = Service.List(options, requestOption);
@@ -21,42 +21,38 @@
             return secrets;
         }
 
-        public static string GetSecret(string id, string defaultValue = "", string environmentName = "")
+        public static object GetSecret()
         {
             var options = new Locker.SecretRetrieveOptions();
-
-            string value = Service.Get(id: id, environmentName: environmentName, defaultValue: defaultValue,
-                retrieveOptions: options);
-            Console.WriteLine();
+            var requestOptions = new RequestOptions();
+            object value = Service.Get(id: "key1", retrieveOptions: options, requestOptions: requestOptions);
             return value;
         }
 
-        public static Secret CreateSecret(string key, string value = null, string environmentName = "",
-            string description = "")
+        public static object CreateSecret()
         {
             var option = new Locker.SecretCreateOptions
             {
-                Key = key,
-                Value = value,
-                Description = description,
-                EnvironmentName = environmentName
+                Key = "key5",
+                Value = "key5 value",
+                Description = "key5 description",
+                EnvironemntName = "env1"
             };
-            var secret = Service.Create(option);
+            var requestOptions = new RequestOptions();
+            var secret = Service.Create(option, requestOptions);
             return secret;
         }
 
-        public static Secret ModifySecret(string key, string newValue, string envName = "", string newKey = "",
-            string newEnvName = "",
-            string newDesc = "")
+        public static object ModifySecret()
         {
             var option = new SecretUpdateOptions()
             {
-                Key = newKey,
-                Value = newValue,
-                Description = newDesc,
-                EnvironmentName = newEnvName,
+                Key = "test1",
+                Value = "test1 new value",
+                Description = "test1 new description",
             };
-            var secret = Service.Modify(id: key, environmentName: envName, updateOptions: option);
+            var requestOptions = new RequestOptions();
+            var secret = Service.Modify(id: "test1", updateOptions: option, requestOptions);
             return secret;
         }
     }

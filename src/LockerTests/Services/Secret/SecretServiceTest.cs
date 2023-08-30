@@ -17,19 +17,23 @@
             {
                 Key = "test1",
                 Value = "test1",
-                EnvironemntId = "1"
             };
         }
 
         [Fact]
-        public void Create()
+        public void CreateWithJsonOption()
         {
-            var secret = this._service.Create(this._createOptions);
-            Assert.NotNull(secret);
-            Assert.IsType<Secret>(secret);
-            Assert.Equal(secret.Data.Key, _createOptions.Key);
-            Assert.Equal(secret.Data.Value, _createOptions.Value);
-            Assert.Equal(secret.EnvironmentId, _createOptions.EnvironemntId);
+            var requestOptions = new RequestOptions()
+            {
+                IsJson = true
+            };
+            var returnData = this._service.Create(this._createOptions, requestOptions);
+            Assert.NotNull(returnData);
+            Assert.IsType<Secret>(returnData);
+            Secret secret = (Secret)returnData;
+            Assert.Equal(secret.Key, _createOptions.Key);
+            Assert.Equal(secret.Value, _createOptions.Value);
+            Assert.Equal(secret.EnvironmentName, _createOptions.EnvironemntName);
         }
 
         [Fact]

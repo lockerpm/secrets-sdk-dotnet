@@ -57,7 +57,7 @@
             }
             else
             {
-                DotNetEnv.Env.Load();
+                DotNetEnv.Env.Load(".env");
             }
         }
 

@@ -37,7 +37,6 @@
         /// <param name="value">The object to deserialize.</param>
         /// <returns>The deserialized Locker object from the JSON string.</returns>
         public static T FromJson<T>(string value)
-            where T : ILockerEntity
         {
             T result;
             try

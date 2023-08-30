@@ -17,7 +17,7 @@
         protected virtual string BaseCli => "";
 
 
-        protected TEntityReturned CreateEntity(BaseOptions options, RequestOptions requestOptions)
+        protected object CreateEntity(BaseOptions options, RequestOptions requestOptions)
         {
             return this.Call(
                 cli_: $"{BaseCli} create",
@@ -26,7 +26,7 @@
         }
 
 
-        protected TEntityReturned? GetEntity(string id, BaseOptions options, RequestOptions requestOptions)
+        protected object GetEntity(string id, BaseOptions options, RequestOptions requestOptions)
         {
             return this.Call(
                 cli_: $"{BaseCli} get --id {id}",
@@ -34,15 +34,24 @@
                 requestOptions: requestOptions);
         }
 
-        protected LockerList<TEntityReturned>? ListEntities(ListOptions options, RequestOptions requestOptions)
+        protected object ListEntities(ListOptions options, RequestOptions requestOptions)
         {
-            return this.Call<LockerList<TEntityReturned>>(
+            requestOptions = requestOptions ?? new RequestOptions();
+            if (requestOptions.IsJson)
+            {
+                return this.Call<LockerList<TEntityReturned>>(
+                    cli_: $"{BaseCli} list",
+                    options: options,
+                    requestOptions: requestOptions);
+            }
+
+            return this.Call<string>(
                 cli_: $"{BaseCli} list",
                 options: options,
                 requestOptions: requestOptions);
         }
 
-        protected TEntityReturned? UpdateEntity(string id, BaseOptions options, RequestOptions requestOptions)
+        protected object UpdateEntity(string id, BaseOptions options, RequestOptions requestOptions)
         {
             return this.Call(
                 cli_: $"{BaseCli} update --id {id}",
@@ -50,9 +59,17 @@
                 requestOptions: requestOptions);
         }
 
-        protected TEntityReturned Call(string cli_, RequestOptions requestOptions, BaseOptions options = null)
+        protected object Call(string cli_, RequestOptions requestOptions, BaseOptions options = null)
         {
-            return Call<TEntityReturned>(cli_: cli_,
+            requestOptions = requestOptions ?? new RequestOptions();
+            if (requestOptions.IsJson)
+            {
+                return Call<TEntityReturned>(cli_: cli_,
+                    requestOptions: requestOptions,
+                    options: options);
+            }
+
+            return Call<string>(cli_: cli_,
                 requestOptions: requestOptions,
                 options: options);
         }
@@ -61,27 +78,38 @@
             string cli_,
             RequestOptions requestOptions,
             BaseOptions options = null)
-            where T : ILockerEntity
         {
-            requestOptions = requestOptions ?? new RequestOptions();
             BinaryAdapter binaryExecutor = new BinaryAdapter(
-                accessKeyId: requestOptions.AccessKey,
+                accessKeyId: requestOptions.AccessKeyId,
+                accessKeySecret: requestOptions.AccessKeySecret,
                 apiBase: requestOptions.ApiBase,
-                apiVersion: requestOptions.ApiVersion);
+                apiVersion: requestOptions.ApiVersion,
+                isJson: requestOptions.IsJson
+            );
             string resData = binaryExecutor.Call(cli: cli_, timeout: requestOptions.Timeout,
                 options: options);
-            T obj;
-            try
+            if (typeof(ILockerEntity).IsAssignableFrom(typeof(T)))
             {
-                obj = LockerEntity.FromJson<T>(resData);
-            }
-            catch (Newtonsoft.Json.JsonException jsonException)
-            {
-                Console.WriteLine(jsonException);
-                throw;
+                T obj;
+                try
+                {
+                    obj = LockerEntity.FromJson<T>(resData);
+                }
+                catch (Newtonsoft.Json.JsonException jsonException)
+                {
+                    Console.WriteLine(jsonException);
+                    throw;
+                }
+
+                return obj;
             }
 
-            return obj;
+            if (typeof(T) == typeof(string))
+            {
+                return (T)(object)resData;
+            }
+
+            return (T)(object)null;
         }
     }
 }

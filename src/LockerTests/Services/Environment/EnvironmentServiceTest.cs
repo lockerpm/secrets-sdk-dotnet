@@ -22,13 +22,30 @@
         }
 
         [Fact]
-        public void Create()
+        public void CreateWithJsonOption()
         {
-            var environment = this._service.Create(this._createOptions);
-            Assert.NotNull(environment);
-            Assert.IsType<Environment>(environment);
+            var requestOptions = new RequestOptions()
+            {
+                IsJson = true
+            };
+            var returnData = this._service.Create(this._createOptions, requestOptions);
+            Assert.NotNull(returnData);
+            Assert.IsType<Environment>(returnData);
+            Environment environment = (Locker.Environment)(returnData);
             Assert.Equal(environment.Name, _createOptions.Name);
             Assert.Equal(environment.ExternalUrl, _createOptions.ExternalUrl);
+        }
+
+        [Fact]
+        public void CreateWithoutJsonOption()
+        {
+            var requestOptions = new RequestOptions()
+            {
+                IsJson = false
+            };
+            var environment = this._service.Create(this._createOptions, requestOptions);
+            Assert.NotNull(environment);
+            Assert.IsType<string>(environment);
         }
 
         [Fact]

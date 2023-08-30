@@ -7,45 +7,60 @@
     {
         private static readonly EnvironmentService Service = new EnvironmentService();
 
-        public static LockerList<Environment> ListEnvironment()
+        public static object ListEnvironment()
         {
             var options = new Locker.EnvironmentListOptions()
             {
             };
+            var requestOptions = new RequestOptions()
+            {
+                IsJson = false
+            };
 
-            var environments = Service.List(options);
+            var environments = Service.List(options, requestOptions);
             return environments;
         }
 
-        public static Environment GetEnvironment(string id)
+        public static object GetEnvironment()
         {
             var options = new Locker.EnvironmentRetrieveOptions();
-            var environment = Service.Get(id, options);
+            var requestOptions = new RequestOptions()
+            {
+                IsJson = false
+            };
+            var environment = Service.Get("env1", options, requestOptions);
             return environment;
         }
 
-        public static Environment UpdateEnvironment(string id, string newName = "", string newExternalUrl = "",
-            string newDescription = "")
+        public static object ModifyEnvironment()
         {
             var option = new EnvironmentUpdateOptions()
             {
-                Name = newName,
-                Description = newDescription,
-                ExternalUrl = newExternalUrl
+                Name = "env1",
+                Description = "new description",
+                ExternalUrl = "new external url"
             };
-            var environment = Service.Modify(id:id, updateOptions:option);
+            var requestOptions = new RequestOptions()
+            {
+                IsJson = false
+            };
+            var environment = Service.Modify(id: "env1", updateOptions: option, requestOptions);
             return environment;
         }
 
-        public static Environment CreateEnvironment(string name, string externalUrl = "", string description = "")
+        public static object CreateEnvironment()
         {
             var option = new EnvironmentCreateOptions()
             {
-                Name = name,
-                ExternalUrl = externalUrl,
-                Description = description
+                Name = "env3",
+                ExternalUrl = "env3 external url",
+                Description = "env3 description"
             };
-            var environment = Service.Create(option);
+            var requestOptions = new RequestOptions()
+            {
+                IsJson = false
+            };
+            var environment = Service.Create(option, requestOptions);
             return environment;
         }
     }

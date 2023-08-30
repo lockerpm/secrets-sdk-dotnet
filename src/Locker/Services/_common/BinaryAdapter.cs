@@ -12,17 +12,19 @@
         private string _accessKeyId;
         private string _accessKeySecret;
         private string _apiBase;
+        private bool _isJson;
         private string _apiVersion;
         private Dictionary<string, string> _headers;
         private PlatformID _systemPlatform;
 
         public BinaryAdapter(string accessKeyId = null, string accessKeySecret = null, string apiBase = null,
-            string apiVersion = null,
+            string apiVersion = null, bool isJson = false,
             Dictionary<string, string> headers = null)
         {
             LockerConfiguration config = LockerConfiguration.Instance;
             this._accessKeyId = accessKeyId;
             this._accessKeySecret = accessKeySecret;
+            this._isJson = isJson;
             this._apiBase = apiBase ?? config.ApiBase;
             this._apiVersion = apiVersion ?? config.ApiVersion;
             this._headers = headers ?? config.Headers;
@@ -68,11 +70,11 @@
                 case PlatformID.Win32S:
                 case PlatformID.Win32Windows:
                 case PlatformID.Win32NT:
-                    return Path.Combine(assemblyDirectory, "Binary", "locker_secret.exe");
+                    return Path.Combine(assemblyDirectory, "Binary", "locker_windows-dev.exe");
                 case PlatformID.Unix:
-                    return Path.Combine(assemblyDirectory, "Binary", "locker_secret_linux");
+                    return Path.Combine(assemblyDirectory, "Binary", "locker_linux-dev");
                 case PlatformID.MacOSX:
-                    return Path.Combine(LockerConfiguration.RootPath, "Binary", "locker_secret_mac");
+                    return Path.Combine(assemblyDirectory, "Binary", "locker_mac-dev");
                 default:
                     return null;
             }
@@ -89,7 +91,7 @@
             }
 
             string myAccessKeyId = this._accessKeyId ?? LockerConfiguration.Instance.AccessKeyId;
-            string myAccessKeySecret = this._accessKeyId ?? LockerConfiguration.Instance.AccessKeySecret;
+            string myAccessKeySecret = this._accessKeySecret ?? LockerConfiguration.Instance.AccessKeySecret;
             if (myAccessKeyId == null || myAccessKeySecret == null)
             {
                 throw new AuthenticationError(
@@ -98,9 +100,14 @@
                     "You can generate Access Key from the Locker Secret web interface.");
             }
 
-            string defaultUserAgent = $"CShap{System.Environment.Version}";
+            string defaultUserAgent = $"CSharp{System.Environment.Version} - 1.0.0";
             string arguments =
                 $"{cli} --access-key-id \"{myAccessKeyId}\" --access-key-secret \"{myAccessKeySecret}\" --api-base {this._apiBase} --client {defaultUserAgent}";
+            if (this._isJson)
+            {
+                arguments += " --verbose";
+            }
+
             string? postData = null;
             if (cli.Contains("get") || cli.Contains("delete"))
             {
@@ -127,9 +134,6 @@
             string headerStr = String.Join(",", headerList);
             arguments += $" --headers \"{headerStr}\"";
 
-
-            // TODO: create logger for debug
-
             ProcessStartInfo startInfo = new ProcessStartInfo();
             startInfo.FileName = binaryFile;
             startInfo.Arguments = arguments;
@@ -141,14 +145,10 @@
             Process process = new Process();
             process.StartInfo = startInfo;
 
-            // Start the timer
-            DateTime startTime = DateTime.Now;
 
             // Start the process
             process.Start();
-
             string output = process.StandardOutput.ReadToEnd();
-            // string error = process.StandardError.ReadToEnd();
             process.WaitForExit();
             if (process.ExitCode == 0)
             {
@@ -171,18 +171,8 @@
 
                 if (!isContainSign)
                 {
-                    string tmp = output;
-                    if (tmp.Trim() == "Killed" || tmp.Contains("returned non-zero exit status 1"))
-                    {
-                        var exc = new CliRunError(output, process);
-                        throw exc;
-                    }
-                    else
-                    {
-                        // TODO: logging warning
-                        var exc = new CliRunError(output, process);
-                        throw exc;
-                    }
+                    var exc = new CliRunError(output, process);
+                    throw exc;
                 }
             }
 
@@ -194,33 +184,33 @@
         {
             try
             {
-                responseBody = responseBody.Split(new string[] { "----------- LOG BREAK -----------" },
-                    StringSplitOptions.None)[1];
-            }
-            catch (IndexOutOfRangeException e)
-            {
-            }
-
-            object responseObj = null;
-            try
-            {
+                object responseObj = null;
                 responseObj = JsonConvert.DeserializeObject(responseBody);
+                JContainer jsonObject = (JContainer)responseObj;
+
+
+                if (ShouldHandleAsError(jsonObject))
+                {
+                    jsonObject["object"] = "error";
+
+                    HandleErrorResponse((JObject)jsonObject);
+                }
             }
             catch (InvalidOperationException ex)
             {
-                // TODO: log error $"[!] CLI result json decode error:::{responseBody}"
-                var exc = new CliRunError($"CLI JSONDecodeError:::{responseBody}");
-                throw exc;
+                if (this._isJson)
+                {
+                    var exc = new CliRunError($"CLI JSONDecodeError:::{responseBody}");
+                    throw exc;
+                }
             }
-
-            JContainer jsonObject = (JContainer)responseObj;
-
-
-            if (ShouldHandleAsError(jsonObject))
+            catch (JsonReaderException ex)
             {
-                jsonObject["object"] = "error";
-
-                HandleErrorResponse((JObject)jsonObject);
+                if (this._isJson)
+                {
+                    var exc = new CliRunError($"CLI JSONDecodeError:::{responseBody}");
+                    throw exc;
+                }
             }
 
             return responseBody;
