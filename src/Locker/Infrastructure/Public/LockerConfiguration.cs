@@ -14,6 +14,7 @@
         private string _accessKeyId;
         private string _accessKeySecret;
         private string _apiVersion;
+        private string _sdkVersion;
         private Dictionary<string, string> _headers = new Dictionary<string, string>();
 
         private static LockerConfiguration instance;
@@ -51,6 +52,9 @@
             _accessKeySecret = accessKeySecret;
             _apiVersion = apiVersion;
             _headers = headers;
+            var assembly = typeof(LockerConfiguration).Assembly;
+            _sdkVersion = assembly.GetName().Version.ToString();
+
             if (envPath != null)
             {
                 DotNetEnv.Env.Load(envPath);
@@ -61,15 +65,6 @@
             }
         }
 
-
-        public static string RootPath
-        {
-            get
-            {
-                var directory = AppContext.BaseDirectory;
-                return directory;
-            }
-        }
 
         /// <summary>Gets or sets the API base.</summary>
         /// <remarks>
@@ -159,6 +154,12 @@
                 return _headers;
             }
             set => _headers = value;
+        }
+
+        public string SdkVersion
+        {
+            get => this._sdkVersion;
+            set => _sdkVersion = value;
         }
 
 

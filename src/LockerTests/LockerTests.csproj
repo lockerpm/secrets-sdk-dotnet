@@ -12,6 +12,9 @@
         <None Update="lockertest.env">
             <CopyToOutputDirectory>Never</CopyToOutputDirectory>
         </None>
+        <None Update="test\test.env">
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </None>
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="All"/>
@@ -33,5 +36,6 @@
     <ItemGroup>
         <EmbeddedResource Include="Resources\**\*.*"/>
     </ItemGroup>
+
 
 </Project>

@@ -61,9 +61,7 @@
 
         private string? GetBinaryFile()
         {
-            string assemblyPath = typeof(BinaryAdapter).Assembly.Location;
-            string assemblyDirectory = Path.GetDirectoryName(assemblyPath);
-
+            string assemblyDirectory = AppDomain.CurrentDomain.BaseDirectory;
             switch (_systemPlatform)
             {
                 case PlatformID.WinCE:
@@ -100,7 +98,7 @@
                     "You can generate Access Key from the Locker Secret web interface.");
             }
 
-            string defaultUserAgent = $"CSharp{System.Environment.Version} - 1.0.0";
+            string defaultUserAgent = $"CSharp{System.Environment.Version} - {LockerConfiguration.Instance.SdkVersion}";
             string arguments =
                 $"{cli} --access-key-id \"{myAccessKeyId}\" --access-key-secret \"{myAccessKeySecret}\" --api-base {this._apiBase} --client {defaultUserAgent}";
             if (this._isJson)

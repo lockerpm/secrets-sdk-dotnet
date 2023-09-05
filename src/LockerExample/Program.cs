@@ -14,15 +14,15 @@ namespace LockerExample
             // Console.WriteLine($"Get secret:\n{secret}");
             // var updatedSecret = SecretExample.ModifySecret();
             // Console.WriteLine($"Updated secret:\n{updatedSecret}");
-            var newSecret = SecretExample.CreateSecret();
-            Console.WriteLine($"New secret:\n{newSecret}");
+            // var newSecret = SecretExample.CreateSecret();
+            // Console.WriteLine($"New secret:\n{newSecret}");
 
-            // var envs = EnvironmentExample.ListEnvironment();
-            // Console.WriteLine($"List env:\n{envs}");
+            var envs = EnvironmentExample.ListEnvironment();
+            Console.WriteLine($"List env:\n{envs}");
             var env = EnvironmentExample.GetEnvironment();
-            Console.WriteLine($"Get env:\n{env}");
+            Console.WriteLine($"Get env: {env}");
             var updatedEnv = EnvironmentExample.ModifyEnvironment();
-            Console.WriteLine($"Updated env:\n{updatedEnv}");
+            Console.WriteLine($"Updated env: {updatedEnv}");
             // var newEnv = EnvironmentExample.CreateEnvironment();
             // Console.WriteLine($"New Env:\n {newEnv}");
         }

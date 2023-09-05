@@ -35,19 +35,19 @@ The documentation will be updated later.
 Using the [.NET Core command-line interface (CLI) tools][dotnet-core-cli-tools]:
 
 ```sh
-dotnet add package Locker
+dotnet add package Locker.net
 ```
 
 Using the [NuGet Command Line Interface (CLI)][nuget-cli]:
 
 ```sh
-nuget install Locker
+nuget install Locker.net
 ```
 
 Using the [Package Manager Console][package-manager-console]:
 
 ```powershell
-Install-Package Locker
+Install-Package Locker.net
 ```
 
 From within Visual Studio:
@@ -55,7 +55,7 @@ From within Visual Studio:
 1. Open the Solution Explorer.
 2. Right-click on a project within your solution.
 3. Click on *Manage NuGet Packages...*
-4. Click on the *Browse* tab and search for "Locker".
+4. Click on the *Browse* tab and search for "Locker.net".
 5. Click on the Locker package, select the appropriate version in the
    right-tab and click *Install*.
 
@@ -93,22 +93,30 @@ LockerConfiguration.Instance.Init(
     envPath: "your_env_file_path"
 );
 ```
+### Per-request configuration
 
+All of the service methods accept an optional `RequestOptions` object. This is
+used if you want to pass the access key, headers on each method, or you want set type of return value (default type is string, if you want type of object use `IsJson=true`)
+
+```c#
+var requestOptions = new RequestOptions();
+requestOptions.AccessKeyId = "ACCESS KEY ID";
+requestOptions.AccessKeySecret = "ACCESS KEY SECRET";
+requestOptions.ApiBase = "API BASE";
+requestOptions.IsJson = true;
+```
 Now, you can use SDK to get or set values:
 
-### List secrets
 
+### List secrets
 ```csharp
 var service = new SecretService();
-var secrets = service.List();
+var secrets = service.List(); // return a string
 ```
 
+
 ### Get a secret value by secret key
-
 ```csharp
-
-var service = new SecretService();
-
 // Get a secret value by secret key.
 // If they Key does not exist, SDK will return the defaultValue
 var secretValue = service.Get(
@@ -127,8 +135,8 @@ secretValue = service.Get(
 Console.WriteLine(secretValue);
 ```
 
-### Create new secret
 
+### Create new secret
 ```csharp
 
 var service = new SecretService();

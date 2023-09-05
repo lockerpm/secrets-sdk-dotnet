@@ -16,7 +16,7 @@
                 IsJson = false
             };
 
-            var secrets = Service.List(options, requestOption);
+            var secrets = Service.List(requestOptions: requestOption);
 
             return secrets;
         }
