@@ -1,4 +1,6 @@
-﻿namespace Locker
+﻿using Locker.Infrastructure;
+
+namespace Locker
 {
     /// <summary>Abstract base class for all services.</summary>
     /// <typeparam name="TEntityReturned">
@@ -22,7 +24,8 @@
             return this.Call(
                 cli_: $"{BaseCli} create",
                 options: options,
-                requestOptions: requestOptions);
+                requestOptions: requestOptions
+            );
         }
 
 
@@ -31,7 +34,8 @@
             return this.Call(
                 cli_: $"{BaseCli} get --id {id}",
                 options: options,
-                requestOptions: requestOptions);
+                requestOptions: requestOptions
+            );
         }
 
         protected object ListEntities(ListOptions options, RequestOptions requestOptions)
@@ -39,16 +43,18 @@
             requestOptions = requestOptions ?? new RequestOptions();
             if (requestOptions.IsJson)
             {
-                return this.Call<LockerList<TEntityReturned>>(
+                return this.Call<List<TEntityReturned>>(
                     cli_: $"{BaseCli} list",
                     options: options,
-                    requestOptions: requestOptions);
+                    requestOptions: requestOptions
+                );
             }
 
             return this.Call<string>(
                 cli_: $"{BaseCli} list",
                 options: options,
-                requestOptions: requestOptions);
+                requestOptions: requestOptions
+            );
         }
 
         protected object UpdateEntity(string id, BaseOptions options, RequestOptions requestOptions)
@@ -56,7 +62,8 @@
             return this.Call(
                 cli_: $"{BaseCli} update --id {id}",
                 options: options,
-                requestOptions: requestOptions);
+                requestOptions: requestOptions
+            );
         }
 
         protected object Call(string cli_, RequestOptions requestOptions, BaseOptions options = null)
@@ -64,14 +71,18 @@
             requestOptions = requestOptions ?? new RequestOptions();
             if (requestOptions.IsJson)
             {
-                return Call<TEntityReturned>(cli_: cli_,
+                return Call<TEntityReturned>(
+                    cli_: cli_,
                     requestOptions: requestOptions,
-                    options: options);
+                    options: options
+                );
             }
 
-            return Call<string>(cli_: cli_,
+            return Call<string>(
+                cli_: cli_,
                 requestOptions: requestOptions,
-                options: options);
+                options: options
+            );
         }
 
         protected T Call<T>(
@@ -102,6 +113,13 @@
                 }
 
                 return obj;
+            }
+
+            if (typeof(List<TEntityReturned>).IsAssignableFrom(typeof(T)))
+            {
+                T result;
+                result = JsonUtils.DeserializeObject<T>(resData, LockerConfiguration.SerializerSettings);
+                return result;
             }
 
             if (typeof(T) == typeof(string))

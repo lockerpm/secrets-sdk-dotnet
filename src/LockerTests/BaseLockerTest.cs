@@ -16,7 +16,7 @@ namespace LockerTests
         /// </summary>
         public BaseLockerTest()
         {
-            LockerConfiguration.Instance.Init(envPath: "lockertest.env");
+            LockerConfiguration.Instance.Init();
         }
 
         protected static string GetResourceAsString(string path)

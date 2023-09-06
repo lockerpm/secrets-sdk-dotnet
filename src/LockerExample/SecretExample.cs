@@ -13,7 +13,7 @@
             };
             var requestOption = new RequestOptions()
             {
-                IsJson = false
+                IsJson = true
             };
 
             var secrets = Service.List(requestOptions: requestOption);
@@ -25,7 +25,8 @@
         {
             var options = new Locker.SecretRetrieveOptions();
             var requestOptions = new RequestOptions();
-            object value = Service.Get(id: "key1", retrieveOptions: options, requestOptions: requestOptions);
+            object value = Service.GetSecret(id: "noooo",defaultValue:"default", retrieveOptions: options,
+                requestOptions: requestOptions);
             return value;
         }
 

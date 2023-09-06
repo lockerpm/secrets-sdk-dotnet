@@ -37,7 +37,43 @@
             return this.Call(
                 cli_: cli_,
                 options: retrieveOptions,
-                requestOptions: requestOptions);
+                requestOptions: requestOptions
+            );
+        }
+
+        public string GetSecret(string id, string defaultValue = "", string environmentName = "",
+            SecretRetrieveOptions retrieveOptions = null,
+            RequestOptions requestOptions = null)
+        {
+            string secretValue = "";
+
+            try
+            {
+                if (environmentName == "")
+                {
+                    secretValue = (string)this.Get(
+                        id: id,
+                        retrieveOptions: retrieveOptions,
+                        requestOptions: requestOptions
+                    );
+                }
+                else
+                {
+                    secretValue = (string)this.Get(
+                        id: id,
+                        environmentName: environmentName,
+                        retrieveOptions: retrieveOptions,
+                        requestOptions: requestOptions
+                    );
+                }
+            }
+            catch (CliRunError e)
+            {
+                secretValue = defaultValue;
+                Console.WriteLine(e);
+            }
+
+            return  secretValue == "" ? defaultValue : secretValue;
         }
 
         public object Modify(string id, SecretUpdateOptions updateOptions, RequestOptions requestOptions = null)
@@ -53,7 +89,8 @@
             return this.Call(
                 cli_: cli_,
                 options: updateOptions,
-                requestOptions: requestOptions);
+                requestOptions: requestOptions
+            );
         }
     }
 }

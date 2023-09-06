@@ -47,9 +47,46 @@
         [Fact]
         public void Get()
         {
-            var secret = this._service.Get(_secretIdMock);
+            var secret = this._service.GetSecret(id: _secretIdMock);
             Assert.NotNull(secret);
             Assert.IsType<string>(secret);
+        }
+
+        [Fact]
+        public void ModifyWithJsonOption()
+        {
+            var option = new SecretUpdateOptions()
+            {
+                Key="key1",
+                Value = "key1 new value",
+                Description = "key1 new description",
+            };
+            var requestOptions = new RequestOptions()
+            {
+                IsJson = true
+            };
+            var secret = this._service.Modify(id: "key1", updateOptions: option, requestOptions);
+            Assert.NotNull(secret);
+            Assert.IsType<Secret>(secret);
+            
+        }
+        [Fact]
+        public void ModifyWithoutJsonOption()
+        {
+            var option = new SecretUpdateOptions()
+            {
+                Key="key1",
+                Value = "key1 new value",
+                Description = "key1 new description",
+            };
+            var requestOptions = new RequestOptions()
+            {
+                IsJson = false
+            };
+            var secret = this._service.Modify(id: "key1", updateOptions: option, requestOptions);
+            Assert.NotNull(secret);
+            Assert.IsType<string>(secret);
+            
         }
     }
 }

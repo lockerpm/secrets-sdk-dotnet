@@ -8,7 +8,7 @@
     {
         private readonly EnvironmentService _service;
         private readonly EnvironmentCreateOptions _createOptions;
-        private readonly string _environmentMockName = "Test";
+        private readonly string _environmentMockName = "env1";
 
         public EnvironmentServiceTest() :
             base()
@@ -59,6 +59,44 @@
         [Fact]
         public void Get()
         {
+            var env = this._service.Get(id: this._environmentMockName);
+            Assert.NotNull(env);
+            Assert.IsType<string>(env);
+        }
+
+        [Fact]
+        public void ModifyWithJsonOption()
+        {
+            var updateOptions = new EnvironmentUpdateOptions()
+            {
+                Name = "env1",
+                ExternalUrl = "env1.com"
+            };
+            var requestOptions = new RequestOptions()
+            {
+                IsJson = true
+            };
+            var env = this._service.Modify(id: this._environmentMockName, updateOptions: updateOptions,
+                requestOptions: requestOptions);
+            Assert.NotNull(env);
+            Assert.IsType<Environment>(env);
+        }
+        
+        [Fact]
+        public void ModifyWithoutJsonOption()
+        {
+            var updateOptions = new EnvironmentUpdateOptions()
+            {
+                Name = "env1",
+                ExternalUrl = "env1.com"
+            };
+            var requestOptions = new RequestOptions()
+            {
+            };
+            var env = this._service.Modify(id: this._environmentMockName, updateOptions: updateOptions,
+                requestOptions: requestOptions);
+            Assert.NotNull(env);
+            Assert.IsType<string>(env);
         }
     }
 }
