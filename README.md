@@ -73,13 +73,13 @@ If you need to set your custom headers, you also need to set `headers` value in 
 using Locker;
 
 
-string accessKeyId = "your_access_key_id";
-string accessKeySecret = "your_access_key_secret";
-string apiBase = "your_api_base";
+string accessKeyId = "YOUR_ACCESS_KEY_ID";
+string accessKeySecret = "YOUR_ACCESS_KEY_SECRET";
+string apiBase = "YOUR_API_BASE";
 Dictionary<string, string> headers = new Dictionary<string, string>()
 {
-    { "CF-Access-Client-Id", "your_cf_access_client_id" },
-    { "CF-Access-Client-Secret", "your_cf_access_client_secret" }
+    { "CF-Access-Client-Id", "YOUR_CF_ACCESS_CLIENT_ID" },
+    { "CF-Access-Client-Secret", "YOUR_CF_ACCESS_CLIENT_SECRET" }
 };
 LockerConfiguration.Instance.Init(
     accessKeyId: accessKeyId,
@@ -90,7 +90,7 @@ LockerConfiguration.Instance.Init(
 
 // setting by .env file
 LockerConfiguration.Instance.Init(
-    envPath: "your_env_file_path"
+    envPath: "YOUR_ENV_FILE_PATH"
 );
 ```
 ### Per-request configuration
@@ -111,7 +111,7 @@ Now, you can use SDK to get or set values:
 ### List secrets
 ```csharp
 var service = new SecretService();
-var secrets = service.List(); // return a string
+var secrets = service.List();
 ```
 
 
@@ -119,18 +119,18 @@ var secrets = service.List(); // return a string
 ```csharp
 // Get a secret value by secret key.
 // If they Key does not exist, SDK will return the defaultValue
-var secretValue = service.Get(
+var secretValue = service.GetSecret(
     id: "REDIS_CONNECTION",
-    defaultValue: "TheDefaultValue"
+    defaultValue: "Default Value"
     )
 Console.WriteLine(secretValue);
 
 // Get a secret value by secret key and specific environment name.
 // If the Key does not exist, SDK will return the defaultValue
-secretValue = service.Get(
+secretValue = service.GetSecret(
     id: "REDIS_CONNECTION",
     environmentName: "staging",
-    defaultValue: "TheDefaultValue"
+    defaultValue: "Default Value"
     )
 Console.WriteLine(secretValue);
 ```
@@ -185,8 +185,7 @@ var environments = service.List();
 ```csharp
 
 var service = new EnvironmentService();
-
-var environment = Service.Get(id: "YOUR_ENV_NAME", options);
+var environment = Service.Get(id: "YOUR_ENV_NAME");
 Console.WriteLine(environment);
 ```
 

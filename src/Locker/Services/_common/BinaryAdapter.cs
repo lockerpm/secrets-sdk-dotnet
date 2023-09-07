@@ -143,7 +143,6 @@
             Process process = new Process();
             process.StartInfo = startInfo;
 
-
             // Start the process
             process.Start();
             string output = process.StandardOutput.ReadToEnd();

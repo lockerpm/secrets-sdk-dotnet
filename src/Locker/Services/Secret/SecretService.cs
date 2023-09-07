@@ -73,11 +73,13 @@
                 Console.WriteLine(e);
             }
 
-            return  secretValue == "" ? defaultValue : secretValue;
+            return secretValue == "" ? defaultValue : secretValue;
         }
 
         public object Modify(string id, SecretUpdateOptions updateOptions, RequestOptions requestOptions = null)
         {
+            updateOptions.Key = updateOptions.Key ?? id;
+
             return this.UpdateEntity(id, updateOptions, requestOptions);
         }
 

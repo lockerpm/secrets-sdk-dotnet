@@ -48,7 +48,6 @@
         {
             var option = new SecretUpdateOptions()
             {
-                Key = "test1",
                 Value = "test1 new value",
                 Description = "test1 new description",
             };

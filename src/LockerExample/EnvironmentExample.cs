@@ -36,7 +36,7 @@
         {
             var option = new EnvironmentUpdateOptions()
             {
-                Name = "env1",
+                Name = "env2",
                 Description = "new description",
                 ExternalUrl = "new external url"
             };
@@ -44,7 +44,7 @@
             {
                 IsJson = false
             };
-            var environment = Service.Modify(id: "env1", updateOptions: option, requestOptions);
+            var environment = Service.Modify(id: "env2", updateOptions: option, requestOptions);
             return environment;
         }
 

@@ -34,6 +34,7 @@
         public object Modify(string id, EnvironmentUpdateOptions updateOptions,
             RequestOptions requestOptions = null)
         {
+            updateOptions.Name = updateOptions.Name ?? id;
             return this.UpdateEntity(id, updateOptions, requestOptions);
         }
     }
