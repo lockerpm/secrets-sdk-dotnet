@@ -23,10 +23,14 @@
 
         public static object GetSecret()
         {
-            var options = new Locker.SecretRetrieveOptions();
+            var options = new SecretRetrieveOptions();
             var requestOptions = new RequestOptions();
-            object value = Service.GetSecret(id: "noooo",defaultValue:"default", retrieveOptions: options,
-                requestOptions: requestOptions);
+            object value = Service.GetSecret(
+                id: "key",
+                defaultValue: "default",
+                retrieveOptions: options,
+                requestOptions: requestOptions
+            );
             return value;
         }
 
@@ -37,7 +41,6 @@
                 Key = "key5",
                 Value = "key5 value",
                 Description = "key5 description",
-                EnvironemntName = "env1"
             };
             var requestOptions = new RequestOptions();
             var secret = Service.Create(option, requestOptions);

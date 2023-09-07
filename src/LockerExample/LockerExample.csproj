@@ -8,7 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Locker\Locker.csproj" />
+        <PackageReference Include="locker-secrets" Version="0.0.1" />
     </ItemGroup>
 
     <ItemGroup>

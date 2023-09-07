@@ -35,19 +35,19 @@ The documentation will be updated later.
 Using the [.NET Core command-line interface (CLI) tools][dotnet-core-cli-tools]:
 
 ```sh
-dotnet add package Locker.net
+dotnet add package locker-secrets
 ```
 
 Using the [NuGet Command Line Interface (CLI)][nuget-cli]:
 
 ```sh
-nuget install Locker.net
+nuget install locker-secrets
 ```
 
 Using the [Package Manager Console][package-manager-console]:
 
 ```powershell
-Install-Package Locker.net
+Install-Package locker-secrets
 ```
 
 From within Visual Studio:
@@ -131,6 +131,29 @@ secretValue = service.GetSecret(
     id: "REDIS_CONNECTION",
     environmentName: "staging",
     defaultValue: "Default Value"
+    )
+Console.WriteLine(secretValue);
+
+// Get a secret value by secret key.
+// If they Key does not exist, SDK will throw exception
+var options = new SecretRetrieveOptions();
+var requestOptions = new RequestOptions();
+var secretValue = service.Get(
+    id: "REDIS_CONNECTION",
+    retrieveOptions: options,
+    requestOptions:requestOptions
+    )
+Console.WriteLine(secretValue);
+
+// Get a secret value by secret key and specific environment name.
+// If the Key does not exist, SDK will throw exception
+var options = new SecretRetrieveOptions();
+var requestOptions = new RequestOptions();
+var secretValue = service.Get(
+    id: "REDIS_CONNECTION",
+    environmentName: "staging",
+    retrieveOptions: options,
+    requestOptions:requestOptions
     )
 Console.WriteLine(secretValue);
 ```
@@ -233,7 +256,7 @@ dotnet test
 Run some tests, filtering by name:
 
 ```sh
-dotnet test --filter FullyQualifiedName~InvoiceServiceTest
+dotnet test --filter FullyQualifiedName~SecretServiceTest
 ```
 
 The library uses [`dotnet-format`][dotnet-format] for code formatting. Code
