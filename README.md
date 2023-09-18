@@ -120,7 +120,7 @@ var secrets = service.List();
 // Get a secret value by secret key.
 // If they Key does not exist, SDK will return the defaultValue
 var secretValue = service.GetSecret(
-    id: "REDIS_CONNECTION",
+    name: "REDIS_CONNECTION",
     defaultValue: "Default Value"
     )
 Console.WriteLine(secretValue);
@@ -128,7 +128,7 @@ Console.WriteLine(secretValue);
 // Get a secret value by secret key and specific environment name.
 // If the Key does not exist, SDK will return the defaultValue
 secretValue = service.GetSecret(
-    id: "REDIS_CONNECTION",
+    name: "REDIS_CONNECTION",
     environmentName: "staging",
     defaultValue: "Default Value"
     )
@@ -139,7 +139,7 @@ Console.WriteLine(secretValue);
 var options = new SecretRetrieveOptions();
 var requestOptions = new RequestOptions();
 var secretValue = service.Get(
-    id: "REDIS_CONNECTION",
+    name: "REDIS_CONNECTION",
     retrieveOptions: options,
     requestOptions:requestOptions
     )
@@ -150,7 +150,7 @@ Console.WriteLine(secretValue);
 var options = new SecretRetrieveOptions();
 var requestOptions = new RequestOptions();
 var secretValue = service.Get(
-    id: "REDIS_CONNECTION",
+    name: "REDIS_CONNECTION",
     environmentName: "staging",
     retrieveOptions: options,
     requestOptions:requestOptions
@@ -184,13 +184,13 @@ var option = new SecretUpdateOptions
 
 // Update a secret value by secret key
 var updated_secret = service.Modify(
-    id: "YOUR_SECRET_KEY",
+    name: "YOUR_SECRET_KEY",
     updateOptions:option
     );
 
 // Update a secret value by secret key and a specific environment name
 var updated_secret = service.Modify(
-    id: "YOUR_SECRET_KEY",
+    name: "YOUR_SECRET_KEY",
     environmentName: "YOUR_ENV_NAME",
     updateOptions:option
     );
@@ -208,7 +208,7 @@ var environments = service.List();
 ```csharp
 
 var service = new EnvironmentService();
-var environment = Service.Get(id: "YOUR_ENV_NAME");
+var environment = Service.Get(name: "YOUR_ENV_NAME");
 Console.WriteLine(environment);
 ```
 
@@ -236,7 +236,7 @@ var option = new EnvironmentUpdateOptions()
        ExternalUrl = "YOUR_UPDATE_EXTERNAL_URL"
    };
 var updatedEnv = service.Modify(
-    id: "YOUR_ENV_NAME,
+    name: "YOUR_ENV_NAME,
     updateOptions:opton
     );
 ```
