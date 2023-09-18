@@ -44,7 +44,7 @@
             {
                 IsJson = false
             };
-            var environment = Service.Modify(id: "env2", updateOptions: option, requestOptions);
+            var environment = Service.Modify(name: "env2", updateOptions: option, requestOptions);
             return environment;
         }
 

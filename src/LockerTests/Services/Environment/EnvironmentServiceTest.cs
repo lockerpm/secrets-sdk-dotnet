@@ -59,7 +59,7 @@
         [Fact]
         public void Get()
         {
-            var env = this._service.Get(id: this._environmentMockName);
+            var env = this._service.Get(name: this._environmentMockName);
             Assert.NotNull(env);
             Assert.IsType<string>(env);
         }
@@ -76,7 +76,7 @@
             {
                 IsJson = true
             };
-            var env = this._service.Modify(id: this._environmentMockName, updateOptions: updateOptions,
+            var env = this._service.Modify(name: this._environmentMockName, updateOptions: updateOptions,
                 requestOptions: requestOptions);
             Assert.NotNull(env);
             Assert.IsType<Environment>(env);
@@ -93,7 +93,7 @@
             var requestOptions = new RequestOptions()
             {
             };
-            var env = this._service.Modify(id: this._environmentMockName, updateOptions: updateOptions,
+            var env = this._service.Modify(name: this._environmentMockName, updateOptions: updateOptions,
                 requestOptions: requestOptions);
             Assert.NotNull(env);
             Assert.IsType<string>(env);

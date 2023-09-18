@@ -7,13 +7,14 @@ namespace LockerExample
         public static void Main(string[] args)
         {
             LockerConfiguration.Instance.Init();
-            List<Secret> secrets = (List<Secret>)SecretExample.ListSecret();
+            var secrets = SecretExample.ListSecret();
+            Console.WriteLine($"List secrets: {secrets}");
             var secret = SecretExample.GetSecret();
             Console.WriteLine($"Get secret:\n{secret}");
             var updatedSecret = SecretExample.ModifySecret();
             Console.WriteLine($"Updated secret:\n{updatedSecret}");
-            var newSecret = SecretExample.CreateSecret();
-            Console.WriteLine($"New secret:\n{newSecret}");
+            // var newSecret = SecretExample.CreateSecret();
+            // Console.WriteLine($"New secret:\n{newSecret}");
 
             var envs = EnvironmentExample.ListEnvironment();
             Console.WriteLine($"List env:\n{envs}");

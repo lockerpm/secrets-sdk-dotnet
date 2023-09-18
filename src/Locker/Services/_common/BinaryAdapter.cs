@@ -100,7 +100,7 @@
 
             string defaultUserAgent = $"CSharp{System.Environment.Version} - {LockerConfiguration.Instance.SdkVersion}";
             string arguments =
-                $"{cli} --access-key-id \"{myAccessKeyId}\" --access-key-secret \"{myAccessKeySecret}\" --api-base {this._apiBase} --client {defaultUserAgent}";
+                $"{cli} --access-key-id \"{myAccessKeyId}\" --access-key-secret \"{myAccessKeySecret}\" --api-base {this._apiBase} --agent {defaultUserAgent}";
             if (this._isJson)
             {
                 arguments += " --verbose";

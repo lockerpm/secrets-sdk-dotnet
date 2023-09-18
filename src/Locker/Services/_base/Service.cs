@@ -29,10 +29,10 @@ namespace Locker
         }
 
 
-        protected object GetEntity(string id, BaseOptions options, RequestOptions requestOptions)
+        protected object GetEntity(string name, BaseOptions options, RequestOptions requestOptions)
         {
             return this.Call(
-                cli_: $"{BaseCli} get --id {id}",
+                cli_: $"{BaseCli} get --name {name}",
                 options: options,
                 requestOptions: requestOptions
             );
@@ -57,10 +57,10 @@ namespace Locker
             );
         }
 
-        protected object UpdateEntity(string id, BaseOptions options, RequestOptions requestOptions)
+        protected object UpdateEntity(string name, BaseOptions options, RequestOptions requestOptions)
         {
             return this.Call(
-                cli_: $"{BaseCli} update --id {id}",
+                cli_: $"{BaseCli} update --name {name}",
                 options: options,
                 requestOptions: requestOptions
             );

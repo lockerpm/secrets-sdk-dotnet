@@ -6,15 +6,16 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
-
-    <ItemGroup>
-        <PackageReference Include="locker-secrets" Version="0.0.1" />
-    </ItemGroup>
+    
 
     <ItemGroup>
       <None Update=".env">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Locker\Locker.csproj" />
     </ItemGroup>
 
 </Project>

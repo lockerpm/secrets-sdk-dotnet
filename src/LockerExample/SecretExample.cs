@@ -13,7 +13,7 @@
             };
             var requestOption = new RequestOptions()
             {
-                IsJson = true
+                IsJson = false
             };
 
             var secrets = Service.List(requestOptions: requestOption);
@@ -26,7 +26,7 @@
             var options = new SecretRetrieveOptions();
             var requestOptions = new RequestOptions();
             object value = Service.GetSecret(
-                id: "key",
+                name: "key1",
                 defaultValue: "default",
                 retrieveOptions: options,
                 requestOptions: requestOptions
@@ -55,7 +55,7 @@
                 Description = "test1 new description",
             };
             var requestOptions = new RequestOptions();
-            var secret = Service.Modify(id: "test1", updateOptions: option, requestOptions);
+            var secret = Service.Modify( "test1", updateOptions: option, requestOptions);
             return secret;
         }
     }

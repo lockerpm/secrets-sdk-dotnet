@@ -24,15 +24,15 @@
             return this.CreateEntity(createOptions, requestOptions);
         }
 
-        public object Get(string id, SecretRetrieveOptions retrieveOptions = null, RequestOptions requestOptions = null)
+        public object Get(string name, SecretRetrieveOptions retrieveOptions = null, RequestOptions requestOptions = null)
         {
-            return this.GetEntity(id, retrieveOptions, requestOptions);
+            return this.GetEntity(name, retrieveOptions, requestOptions);
         }
 
-        public object Get(string id, string environmentName, SecretRetrieveOptions retrieveOptions = null,
+        public object Get(string name, string environmentName, SecretRetrieveOptions retrieveOptions = null,
             RequestOptions requestOptions = null)
         {
-            string cli_ = $"{BaseCli} get --id {id} --env {environmentName}";
+            string cli_ = $"{BaseCli} get --name {name} --env {environmentName}";
 
             return this.Call(
                 cli_: cli_,
@@ -41,7 +41,7 @@
             );
         }
 
-        public string GetSecret(string id, string defaultValue = "", string environmentName = "",
+        public string GetSecret(string name, string defaultValue = "", string environmentName = "",
             SecretRetrieveOptions retrieveOptions = null,
             RequestOptions requestOptions = null)
         {
@@ -52,7 +52,7 @@
                 if (environmentName == "")
                 {
                     secretValue = (string)this.Get(
-                        id: id,
+                        name: name,
                         retrieveOptions: retrieveOptions,
                         requestOptions: requestOptions
                     );
@@ -60,7 +60,7 @@
                 else
                 {
                     secretValue = (string)this.Get(
-                        id: id,
+                        name: name,
                         environmentName: environmentName,
                         retrieveOptions: retrieveOptions,
                         requestOptions: requestOptions
@@ -76,17 +76,17 @@
             return secretValue == "" ? defaultValue : secretValue;
         }
 
-        public object Modify(string id, SecretUpdateOptions updateOptions, RequestOptions requestOptions = null)
+        public object Modify(string name, SecretUpdateOptions updateOptions, RequestOptions requestOptions = null)
         {
-            updateOptions.Key = updateOptions.Key ?? id;
+            updateOptions.Key = updateOptions.Key ?? name;
 
-            return this.UpdateEntity(id, updateOptions, requestOptions);
+            return this.UpdateEntity(name, updateOptions, requestOptions);
         }
 
-        public object Modify(string id, string environmentName, SecretUpdateOptions updateOptions,
+        public object Modify(string name, string environmentName, SecretUpdateOptions updateOptions,
             RequestOptions requestOptions = null)
         {
-            string cli_ = $"{BaseCli} update --id {id} --env {environmentName}";
+            string cli_ = $"{BaseCli} update --name {name} --env {environmentName}";
 
             return this.Call(
                 cli_: cli_,

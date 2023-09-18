@@ -25,17 +25,17 @@
             return this.ListEntities(listOptions, requestOptions);
         }
 
-        public object Get(string id, EnvironmentRetrieveOptions retrieveOptions = null,
+        public object Get(string name, EnvironmentRetrieveOptions retrieveOptions = null,
             RequestOptions requestOptions = null)
         {
-            return this.GetEntity(id, retrieveOptions, requestOptions);
+            return this.GetEntity(name, retrieveOptions, requestOptions);
         }
 
-        public object Modify(string id, EnvironmentUpdateOptions updateOptions,
+        public object Modify(string name, EnvironmentUpdateOptions updateOptions,
             RequestOptions requestOptions = null)
         {
-            updateOptions.Name = updateOptions.Name ?? id;
-            return this.UpdateEntity(id, updateOptions, requestOptions);
+            updateOptions.Name = updateOptions.Name ?? name;
+            return this.UpdateEntity(name, updateOptions, requestOptions);
         }
     }
 }
