@@ -1,0 +1,12 @@
+stages:
+  - build
+
+build:
+  stage: build
+  script:
+    - whoami
+  tags:
+    - win01
+  only:
+    - release
+    - tags
