@@ -2,7 +2,7 @@
     <PropertyGroup>
         <Description>Locker is a .NET 4.6.1+ client, and a portable class library for the Locker Secret.(Official Library)</Description>
         <PackageId>locker-secrets</PackageId>
-        <Version>0.0.2</Version>
+        <Version>0.0.3</Version>
         <LangVersion>11</LangVersion>
         <Authors>CyStack</Authors>
         <PackageTags>Locker</PackageTags>

@@ -4,7 +4,10 @@ stages:
 build:
   stage: build
   script:
-    - whoami
+    - cd src
+    - pwd
+    - dotnet pack --configuration Release
+    - nuget push Locker\bin\Release\locker-secrets.0.0.3.nupkg
   tags:
     - win01
   only:
