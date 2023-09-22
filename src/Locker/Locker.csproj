@@ -1,11 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Locker is a .NET 4.6.1+ client, and a portable class library for the Locker Secret.(Official Library)</Description>
-        <PackageId>locker-secrets</PackageId>
-        <Version>0.0.2</Version>
+        <PackageId>lockerpm</PackageId>
+        <Version>0.0.1</Version>
         <LangVersion>11</LangVersion>
         <Authors>CyStack</Authors>
-        <PackageTags>Locker</PackageTags>
+        <PackageTags>Locker, LockerPM</PackageTags>
         <TargetFrameworks>net5.0;net6.0;netcoreapp3.1;netstandard2.0;net461;net7.0</TargetFrameworks>
         <PackageLicenseFile>LICENSE</PackageLicenseFile>
         <PublishRepositoryUrl>false</PublishRepositoryUrl>
@@ -23,74 +23,74 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="DotNetEnv" Version="2.5.0" />
-        <PackageReference Include="System.IO.FileSystem.AccessControl" Version="5.0.0" />
+        <PackageReference Include="DotNetEnv" Version="2.5.0"/>
+        <PackageReference Include="System.IO.FileSystem.AccessControl" Version="5.0.0"/>
     </ItemGroup>
-    
-    
+
+
     <ItemGroup>
-        <None Remove="App.config" />
-        <None Remove="Binary\locker_js-dev.wasm" />
-        <None Remove="Binary\locker_linux-dev" />
-        <None Remove="Binary\locker_mac-dev" />
-        <None Remove="Binary\locker_windows-dev.exe" />
+        <None Remove="App.config"/>
+        <None Remove="Binary\locker_js-dev.wasm"/>
+        <None Remove="Binary\locker_linux-dev"/>
+        <None Remove="Binary\locker_mac-dev"/>
+        <None Remove="Binary\locker_windows-dev.exe"/>
     </ItemGroup>
-    
-    
+
+
     <ItemGroup>
-      <Content Include="Binary\locker_js-dev.wasm">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-          <PackageCopyToOutput>true</PackageCopyToOutput>
-      </Content>
-      <Content Include="Binary\locker_linux-dev">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-          <PackageCopyToOutput>true</PackageCopyToOutput>
-      </Content>
-      <Content Include="Binary\locker_mac-dev">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-          <PackageCopyToOutput>true</PackageCopyToOutput>
-      </Content>
-      <Content Include="Binary\locker_windows-dev.exe">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-          <PackageCopyToOutput>true</PackageCopyToOutput>
-      </Content>
+        <Content Include="Binary\locker_js-dev.wasm">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+            <PackageCopyToOutput>true</PackageCopyToOutput>
+        </Content>
+        <Content Include="Binary\locker_linux-dev">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+            <PackageCopyToOutput>true</PackageCopyToOutput>
+        </Content>
+        <Content Include="Binary\locker_mac-dev">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+            <PackageCopyToOutput>true</PackageCopyToOutput>
+        </Content>
+        <Content Include="Binary\locker_windows-dev.exe">
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+            <PackageCopyToOutput>true</PackageCopyToOutput>
+        </Content>
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="All" />
+        <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="All"/>
     </ItemGroup>
     <ItemGroup Condition="'$(TargetFramework)' == 'net5.0'">
-        <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+        <PackageReference Include="Newtonsoft.Json" Version="12.0.3"/>
     </ItemGroup>
 
     <ItemGroup Condition="'$(TargetFramework)' == 'net6.0'">
-        <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
-        <PackageReference Include="System.Configuration.ConfigurationManager" Version="6.0.0" />
+        <PackageReference Include="Newtonsoft.Json" Version="12.0.3"/>
+        <PackageReference Include="System.Configuration.ConfigurationManager" Version="6.0.0"/>
     </ItemGroup>
     <ItemGroup Condition="'$(TargetFramework)' == 'net7.0'">
-        <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
-        <PackageReference Include="System.Configuration.ConfigurationManager" Version="7.0.0" />
+        <PackageReference Include="Newtonsoft.Json" Version="12.0.3"/>
+        <PackageReference Include="System.Configuration.ConfigurationManager" Version="7.0.0"/>
     </ItemGroup>
 
     <ItemGroup Condition="'$(TargetFramework)' == 'netcoreapp3.1'">
-        <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
-        <PackageReference Include="System.Configuration.ConfigurationManager" Version="4.7.0" />
+        <PackageReference Include="Newtonsoft.Json" Version="12.0.3"/>
+        <PackageReference Include="System.Configuration.ConfigurationManager" Version="4.7.0"/>
     </ItemGroup>
 
     <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
-        <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="1.1.0" />
-        <PackageReference Include="Newtonsoft.Json" Version="11.0.1" />
-        <PackageReference Include="System.Configuration.ConfigurationManager" Version="4.5.0" />
+        <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="1.1.0"/>
+        <PackageReference Include="Newtonsoft.Json" Version="11.0.1"/>
+        <PackageReference Include="System.Configuration.ConfigurationManager" Version="4.5.0"/>
     </ItemGroup>
 
     <ItemGroup Condition=" '$(TargetFramework)' == 'net461' ">
-        <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="1.1.0" />
-        <PackageReference Include="Newtonsoft.Json" Version="9.0.1" />
-        <PackageReference Include="System.Runtime.InteropServices.RuntimeInformation" Version="4.3.0" />
-        <Reference Include="System.Configuration" />
-        <Reference Include="System.Net.Http" />
+        <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="1.1.0"/>
+        <PackageReference Include="Newtonsoft.Json" Version="9.0.1"/>
+        <PackageReference Include="System.Runtime.InteropServices.RuntimeInformation" Version="4.3.0"/>
+        <Reference Include="System.Configuration"/>
+        <Reference Include="System.Net.Http"/>
     </ItemGroup>
 
     <ItemGroup>
-        <None Include="..\LICENSE" Pack="true" PackagePath="" />
+        <None Include="..\LICENSE" Pack="true" PackagePath=""/>
     </ItemGroup>
 </Project>

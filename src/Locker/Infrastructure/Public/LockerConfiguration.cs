@@ -68,7 +68,7 @@
 
         /// <summary>Gets or sets the API base.</summary>
         /// <remarks>
-        /// You can also set the API base using the <c>LockerApiBase</c> key in .env
+        /// You can also set the API base using the <c>API_BASE</c> key in .env
         /// </remarks>
         public string ApiBase
         {
@@ -76,7 +76,7 @@
             {
                 if (string.IsNullOrEmpty(_apiBase))
                 {
-                    _apiBase = Env.GetString("LockerApiBase");
+                    _apiBase = Env.GetString("API_BASE");
                 }
 
                 return _apiBase;
@@ -86,7 +86,7 @@
 
         /// <summary>Gets or sets the Access key id.</summary>
         /// <remarks>
-        /// You can also set the Access key id using the <c>LockerAccessKeyId</c> key in .env file
+        /// You can also set the Access key id using the <c>ACCESS_KEY_ID</c> key in .env file
         /// </remarks>
         public string AccessKeyId
         {
@@ -94,7 +94,7 @@
             {
                 if (string.IsNullOrEmpty(_accessKeyId))
                 {
-                    _accessKeyId = Env.GetString("LockerAccessKeyId");
+                    _accessKeyId = Env.GetString("ACCESS_KEY_ID");
                 }
 
                 return _accessKeyId;
@@ -104,7 +104,7 @@
 
         /// <summary>Gets or sets the Access key secret.</summary>
         /// <remarks>
-        /// You can also set the Access key secret using the <c>LockerAccessKeySecret</c> key in .env file
+        /// You can also set the Access key secret using the <c>ACCESS_KEY_SECRET</c> key in .env file
         /// </remarks>
         public string AccessKeySecret
         {
@@ -112,7 +112,7 @@
             {
                 if (string.IsNullOrEmpty(_accessKeySecret))
                 {
-                    _accessKeySecret = Env.GetString("LockerAccessKeySecret");
+                    _accessKeySecret = Env.GetString("ACCESS_KEY_SECRET");
                 }
 
                 return _accessKeySecret;
@@ -122,7 +122,7 @@
 
         /// <summary>Gets or sets the API version.</summary>
         /// <remarks>
-        /// You can also set the Api version using the <c>LockerApiVersion</c> key in .env file
+        /// You can also set the Api version using the <c>API_VERSION</c> key in .env file
         /// </remarks>
         public string ApiVersion
         {
@@ -130,7 +130,7 @@
             {
                 if (string.IsNullOrEmpty(_apiVersion))
                 {
-                    _apiVersion = Env.GetString("LockerApiVersion");
+                    _apiVersion = Env.GetString("API_VERSION");
                 }
 
                 return _apiVersion;
@@ -142,8 +142,8 @@
         {
             get
             {
-                var cfAccessClientId = Env.GetString("CFAccessClientId");
-                var cfAccessClientSecret = Env.GetString("CFClientSecret");
+                var cfAccessClientId = Env.GetString("CF_ACCESS_CLIENT_ID");
+                var cfAccessClientSecret = Env.GetString("CF_ACCESS_CLIENT_SECRET");
                 _headers = _headers == null || _headers.Count == 0
                     ? new Dictionary<string, string>()
                     {
