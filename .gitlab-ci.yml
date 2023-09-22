@@ -7,7 +7,8 @@ build:
     - cd src
     - pwd
     - dotnet pack --configuration Release
-    - nuget push Locker\bin\Release\locker-secrets.0.0.3.nupkg
+    - pip install xmltodict
+    - python deploy.py
   tags:
     - win01
   only:
