@@ -12,4 +12,3 @@ project.lock.json
 
 .DS_Store
 .idea/
-*.env
