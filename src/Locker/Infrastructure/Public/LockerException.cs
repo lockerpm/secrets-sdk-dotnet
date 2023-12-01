@@ -22,7 +22,7 @@
         {
         }
 
-        public LockerError(string message = null, string httpBody = null, int httpStatus = default,
+        public LockerError(string? message = null, string httpBody = null, int httpStatus = default,
             string jsonBody = null,
             string headers = null, string errorCode = null) : base(message)
         {
@@ -44,7 +44,7 @@
         {
         }
 
-        public APIError(string message = null, string httpBody = null, int httpStatus = default,
+        public APIError(string? message = null, string httpBody = null, int httpStatus = default,
             string jsonBody = null,
             string headers = null, string errorCode = null) : base(message, httpBody, httpStatus, jsonBody, headers,
             errorCode)
@@ -88,7 +88,7 @@
         {
         }
 
-        public PermissionDeniedError(string message = null, string httpBody = null, int httpStatus = default,
+        public PermissionDeniedError(string? message = null, string httpBody = null, int httpStatus = default,
             string jsonBody = null,
             string headers = null, string errorCode = null) : base(message, httpBody, httpStatus, jsonBody, headers,
             errorCode)
@@ -106,7 +106,7 @@
         {
         }
 
-        public RateLimitError(string message = null, string httpBody = null, int httpStatus = default,
+        public RateLimitError(string? message = null, string httpBody = null, int httpStatus = default,
             string jsonBody = null,
             string headers = null, string errorCode = null) : base(message, httpBody, httpStatus, jsonBody, headers,
             errorCode)

@@ -61,21 +61,7 @@
 
         private string? GetBinaryFile()
         {
-            string assemblyDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            switch (_systemPlatform)
-            {
-                case PlatformID.WinCE:
-                case PlatformID.Win32S:
-                case PlatformID.Win32Windows:
-                case PlatformID.Win32NT:
-                    return Path.Combine(assemblyDirectory, "Binary", "locker_windows-dev.exe");
-                case PlatformID.Unix:
-                    return Path.Combine(assemblyDirectory, "Binary", "locker_linux-dev");
-                case PlatformID.MacOSX:
-                    return Path.Combine(assemblyDirectory, "Binary", "locker_mac-dev");
-                default:
-                    return null;
-            }
+            return LockerConfiguration.Instance.BinaryFilePath;
         }
 
         public string Call(string cli, int timeout = 30,
@@ -98,9 +84,14 @@
                     "You can generate Access Key from the Locker Secret web interface.");
             }
 
-            string defaultUserAgent = $"CSharp{System.Environment.Version} - {LockerConfiguration.Instance.SdkVersion}";
+            string defaultUserAgent = $"CSharp - {LockerConfiguration.Instance.SdkVersion}";
             string arguments =
-                $"{cli} --access-key-id \"{myAccessKeyId}\" --access-key-secret \"{myAccessKeySecret}\" --api-base {this._apiBase} --agent {defaultUserAgent}";
+                $"{cli} --access-key-id \"{myAccessKeyId}\" --access-key-secret \"{myAccessKeySecret}\" --agent {defaultUserAgent}";
+            if (!String.IsNullOrEmpty(_apiBase))
+            {
+                arguments = $"{arguments} --api-base {_apiBase}";
+            }
+
             if (this._isJson)
             {
                 arguments += " --verbose";
@@ -183,7 +174,7 @@
             {
                 object responseObj = null;
                 responseObj = JsonConvert.DeserializeObject(responseBody);
-                JContainer jsonObject = (JContainer)responseObj;
+                JContainer? jsonObject = (JContainer)responseObj;
 
 
                 if (ShouldHandleAsError(jsonObject))
@@ -193,14 +184,6 @@
                     HandleErrorResponse((JObject)jsonObject);
                 }
             }
-            catch (InvalidOperationException ex)
-            {
-                if (this._isJson)
-                {
-                    var exc = new CliRunError($"CLI JSONDecodeError:::{responseBody}");
-                    throw exc;
-                }
-            }
             catch (JsonReaderException ex)
             {
                 if (this._isJson)
@@ -208,12 +191,46 @@
                     var exc = new CliRunError($"CLI JSONDecodeError:::{responseBody}");
                     throw exc;
                 }
+
+                string objectValue = ExtractValue(responseBody, "object");
+
+                if (objectValue != null)
+                {
+                    string errorValue = ExtractValue(responseBody, "error");
+                    string messageValue = ExtractValue(responseBody, "message");
+                    var jObject = new JObject();
+                    jObject["object"] = objectValue;
+                    jObject["error"] = errorValue;
+                    jObject["message"] = messageValue;
+                    HandleErrorResponse(jObject);
+                }
             }
 
             return responseBody;
         }
 
-        private bool ShouldHandleAsError(JContainer responseObj)
+        static string? ExtractValue(string json, string key)
+        {
+            int startIndex = json.IndexOf($"\"{key}\"");
+            if (startIndex >= 0)
+            {
+                startIndex = json.IndexOf(':', startIndex);
+                if (startIndex >= 0)
+                {
+                    int endIndex = json.IndexOf("\n", startIndex);
+                    if (endIndex >= 0)
+                    {
+                        string value = json.Substring(startIndex + 3, endIndex - (startIndex + 4)).Trim();
+                        value = value.Replace("\"", "");
+                        return value;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private bool ShouldHandleAsError(JContainer? responseObj)
         {
             JObject checkObj = null;
             try
@@ -262,13 +279,13 @@
             errorData.TryGetValue("status_code", out var statusCode);
             errorData.TryGetValue("error", out var errorCode);
             errorData.TryGetValue("message", out var message);
-            if (statusCode == (object?)429 || errorCode == (JToken?)"rate_limit")
+            if (errorCode == (JToken?)"rate_limit")
             {
                 return new RateLimitError(message: (string)message, httpBody: JsonConvert.SerializeObject(errorData),
                     httpStatus: 429, errorCode: "rate_limit");
             }
 
-            if (statusCode == (object?)403 || errorCode == (JToken?)"permission_denied")
+            if (errorCode == (JToken?)"permission_denied")
             {
                 return new PermissionDeniedError(message: (string)message,
                     httpBody: JsonConvert.SerializeObject(errorData),

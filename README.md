@@ -35,19 +35,19 @@ The documentation will be updated later.
 Using the [.NET Core command-line interface (CLI) tools][dotnet-core-cli-tools]:
 
 ```sh
-dotnet add package locker-secrets
+dotnet add package lockerpm
 ```
 
 Using the [NuGet Command Line Interface (CLI)][nuget-cli]:
 
 ```sh
-nuget install locker-secrets
+nuget install lockerpm
 ```
 
 Using the [Package Manager Console][package-manager-console]:
 
 ```powershell
-Install-Package locker-secrets
+Install-Package lockerpm
 ```
 
 From within Visual Studio:

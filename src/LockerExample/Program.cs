@@ -13,8 +13,8 @@ namespace LockerExample
             Console.WriteLine($"Get secret:\n{secret}");
             var updatedSecret = SecretExample.ModifySecret();
             Console.WriteLine($"Updated secret:\n{updatedSecret}");
-            // var newSecret = SecretExample.CreateSecret();
-            // Console.WriteLine($"New secret:\n{newSecret}");
+            var newSecret = SecretExample.CreateSecret();
+            Console.WriteLine($"New secret:\n{newSecret}");
 
             var envs = EnvironmentExample.ListEnvironment();
             Console.WriteLine($"List env:\n{envs}");
