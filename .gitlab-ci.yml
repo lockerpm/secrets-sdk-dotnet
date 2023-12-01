@@ -1,0 +1,16 @@
+stages:
+  - build
+
+build:
+  stage: build
+  script:
+    - cd src
+    - pwd
+    - dotnet pack --configuration Release
+    - pip install xmltodict
+    - python deploy.py
+  tags:
+    - win01
+  only:
+    - release
+    - tags
