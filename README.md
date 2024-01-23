@@ -64,7 +64,7 @@ From within Visual Studio:
 ### Set up access key
 
 The SDK needs to be configured with your access key which is available in your Locker Secret Dashboard.
-Initialize the `access_key_id` and `access_key_secret` to its value.
+Initialize the `access_key_id` and `secret_access_key` to its value.
 You also need to set `api_base` value (default is `https://secrets-core.locker.io`).
 
 If you need to set your custom headers, you also need to set `headers` value in the `options` param:
@@ -74,7 +74,7 @@ using Locker;
 
 
 string accessKeyId = "YOUR_ACCESS_KEY_ID";
-string accessKeySecret = "YOUR_ACCESS_KEY_SECRET";
+string secretAccessKey = "YOUR_SECRET_ACCESS_KEY";
 string apiBase = "YOUR_API_BASE";
 Dictionary<string, string> headers = new Dictionary<string, string>()
 {
@@ -83,7 +83,7 @@ Dictionary<string, string> headers = new Dictionary<string, string>()
 };
 LockerConfiguration.Instance.Init(
     accessKeyId: accessKeyId,
-    accessKeySecret: accessKeySecret,
+    secretAccessKey: secretAccessKey,
     apiBase: apiBase,
     headers: headers
 );
@@ -101,7 +101,7 @@ used if you want to pass the access key, headers on each method, or you want set
 ```c#
 var requestOptions = new RequestOptions();
 requestOptions.AccessKeyId = "ACCESS KEY ID";
-requestOptions.AccessKeySecret = "ACCESS KEY SECRET";
+requestOptions.SecretAccessKey = "SECRET ACCESS KEY";
 requestOptions.ApiBase = "API BASE";
 requestOptions.IsJson = true;
 ```
