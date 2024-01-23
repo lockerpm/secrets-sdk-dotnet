@@ -92,7 +92,7 @@ namespace Locker
         {
             BinaryAdapter binaryExecutor = new BinaryAdapter(
                 accessKeyId: requestOptions.AccessKeyId,
-                accessKeySecret: requestOptions.AccessKeySecret,
+                secretAccessKey: requestOptions.SecretAccessKey,
                 apiBase: requestOptions.ApiBase,
                 apiVersion: requestOptions.ApiVersion,
                 isJson: requestOptions.IsJson

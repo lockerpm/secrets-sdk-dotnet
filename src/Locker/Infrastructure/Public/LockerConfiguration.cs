@@ -16,7 +16,7 @@
     {
         private string _apiBase;
         private string _accessKeyId;
-        private string _accessKeySecret;
+        private string _secretAccessKey;
         private string _apiVersion;
         private string _sdkVersion;
         private string _lockerDir;
@@ -54,7 +54,7 @@
         {
             string homeDir = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile);
             _lockerDir = Path.Combine(homeDir, ".locker");
-            _binaryVersion = "1.0.25";
+            _binaryVersion = "1.0.69";
             _binaryFilePath = Path.Combine(_lockerDir, $"locker_binary-{this._binaryVersion}");
         }
 
@@ -79,6 +79,7 @@
                          .OSPlatform.Windows))
             {
                 binaryUrl = $"https://s.locker.io/download/locker-cli-win-x64-{_binaryVersion}.exe";
+
                 _binaryFilePath = Path.Combine(_lockerDir, $"locker_binary-{_binaryVersion}.exe");
             }
             else
@@ -146,13 +147,13 @@
         }
 
 
-        public void Init(string apiBase = null, string accessKeyId = null, string accessKeySecret = null,
+        public void Init(string apiBase = null, string accessKeyId = null, string secretAccessKey = null,
             string apiVersion = null,
             Dictionary<string, string> headers = null, string envPath = null)
         {
             _apiBase = apiBase;
             _accessKeyId = accessKeyId;
-            _accessKeySecret = accessKeySecret;
+            _secretAccessKey = secretAccessKey;
             _apiVersion = apiVersion;
             _headers = headers;
 
@@ -213,18 +214,18 @@
         /// <remarks>
         /// You can also set the Access key secret using the <c>ACCESS_KEY_SECRET</c> key in .env file
         /// </remarks>
-        public string AccessKeySecret
+        public string SecretAccessKey
         {
             get
             {
-                if (string.IsNullOrEmpty(_accessKeySecret))
+                if (string.IsNullOrEmpty(_secretAccessKey))
                 {
-                    _accessKeySecret = DotNetEnv.Env.GetString("ACCESS_KEY_SECRET");
+                    _secretAccessKey = DotNetEnv.Env.GetString("SECRET_ACCESS_KEY");
                 }
 
-                return _accessKeySecret;
+                return _secretAccessKey;
             }
-            set => _accessKeySecret = value;
+            set => _secretAccessKey = value;
         }
 
         /// <summary>Gets or sets the API version.</summary>
