@@ -10,20 +10,20 @@
     public class BinaryAdapter
     {
         private string _accessKeyId;
-        private string _accessKeySecret;
+        private string _secretAccessKey;
         private string _apiBase;
         private bool _isJson;
         private string _apiVersion;
         private Dictionary<string, string> _headers;
         private PlatformID _systemPlatform;
 
-        public BinaryAdapter(string accessKeyId = null, string accessKeySecret = null, string apiBase = null,
+        public BinaryAdapter(string accessKeyId = null, string secretAccessKey = null, string apiBase = null,
             string apiVersion = null, bool isJson = false,
             Dictionary<string, string> headers = null)
         {
             LockerConfiguration config = LockerConfiguration.Instance;
             this._accessKeyId = accessKeyId;
-            this._accessKeySecret = accessKeySecret;
+            this._secretAccessKey = secretAccessKey;
             this._isJson = isJson;
             this._apiBase = apiBase ?? config.ApiBase;
             this._apiVersion = apiVersion ?? config.ApiVersion;
@@ -75,8 +75,8 @@
             }
 
             string myAccessKeyId = this._accessKeyId ?? LockerConfiguration.Instance.AccessKeyId;
-            string myAccessKeySecret = this._accessKeySecret ?? LockerConfiguration.Instance.AccessKeySecret;
-            if (myAccessKeyId == null || myAccessKeySecret == null)
+            string mySecretAccessKey = this._secretAccessKey ?? LockerConfiguration.Instance.SecretAccessKey;
+            if (myAccessKeyId == null || mySecretAccessKey == null)
             {
                 throw new AuthenticationError(
                     "No Access key id or Access key secret provided." +
@@ -86,7 +86,7 @@
 
             string defaultUserAgent = $"CSharp - {LockerConfiguration.Instance.SdkVersion}";
             string arguments =
-                $"{cli} --access-key-id \"{myAccessKeyId}\" --access-key-secret \"{myAccessKeySecret}\" --agent {defaultUserAgent}";
+                $"{cli} --access-key-id \"{myAccessKeyId}\" --secret-access-key \"{mySecretAccessKey}\" --agent {defaultUserAgent}";
             if (!String.IsNullOrEmpty(_apiBase))
             {
                 arguments = $"{arguments} --api-base {_apiBase}";
