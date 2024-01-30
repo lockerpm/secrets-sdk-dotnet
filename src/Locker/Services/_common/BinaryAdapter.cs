@@ -279,20 +279,53 @@
             errorData.TryGetValue("status_code", out var statusCode);
             errorData.TryGetValue("error", out var errorCode);
             errorData.TryGetValue("message", out var message);
-            if (errorCode == (JToken?)"rate_limit")
+            int statusCodeInt = (int)(statusCode ?? -1);
+            string errorCodeStr = (string)(errorCode ?? "_");
+            string messageStr = (string)(message ?? "");
+            if (statusCodeInt == 429 || errorCodeStr == "rate_limit")
             {
-                return new RateLimitError(message: (string)message, httpBody: JsonConvert.SerializeObject(errorData),
+                return new RateLimitError(message: messageStr, httpBody: JsonConvert.SerializeObject(errorData),
                     httpStatus: 429, errorCode: "rate_limit");
             }
 
-            if (errorCode == (JToken?)"permission_denied")
+            if (statusCodeInt == 403 || errorCodeStr == "permission_denied")
             {
-                return new PermissionDeniedError(message: (string)message,
+                return new PermissionDeniedError(message: messageStr,
                     httpBody: JsonConvert.SerializeObject(errorData),
                     httpStatus: 403, errorCode: "permission_denied");
             }
 
-            return new APIError(message: (string)message, httpBody: JsonConvert.SerializeObject(errorData));
+            if (statusCodeInt == 401 || errorCodeStr == "unauthorized" ||
+                errorCode == (JToken?)"invalid_secret_access_key")
+            {
+                return new AuthenticationError(message: messageStr,
+                    httpBody: JsonConvert.SerializeObject(errorData),
+                    httpStatus: 401, errorCode: errorCodeStr);
+            }
+
+            if (statusCodeInt == 404 || errorCodeStr == "not_found")
+            {
+                return new ResourceNotFoundError(message: messageStr,
+                    httpBody: JsonConvert.SerializeObject(errorData),
+                    httpStatus: 404, errorCode: "permission_denied");
+            }
+
+
+            if (statusCodeInt >= 500 || errorCodeStr == "server_error")
+            {
+                return new APIServerError(message: messageStr,
+                    httpBody: JsonConvert.SerializeObject(errorData),
+                    httpStatus: statusCodeInt, errorCode: errorCodeStr);
+            }
+
+            if (errorCodeStr == "http_error")
+            {
+                return new APIConnectionError(message: messageStr,
+                    httpBody: JsonConvert.SerializeObject(errorData));
+            }
+
+
+            return new APIError(message: messageStr, httpBody: JsonConvert.SerializeObject(errorData));
         }
     }
 }
