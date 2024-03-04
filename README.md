@@ -93,10 +93,12 @@ LockerConfiguration.Instance.Init(
     envPath: "YOUR_ENV_FILE_PATH"
 );
 ```
+
 ### Per-request configuration
 
 All of the service methods accept an optional `RequestOptions` object. This is
-used if you want to pass the access key, headers on each method, or you want set type of return value (default type is string, if you want type of object use `IsJson=true`)
+used if you want to pass the access key, headers on each method, or you want set type of return value (default type is
+string, if you want type of object use `IsJson=true`)
 
 ```c#
 var requestOptions = new RequestOptions();
@@ -105,17 +107,18 @@ requestOptions.SecretAccessKey = "SECRET ACCESS KEY";
 requestOptions.ApiBase = "API BASE";
 requestOptions.IsJson = true;
 ```
+
 Now, you can use SDK to get or set values:
 
-
 ### List secrets
+
 ```csharp
 var service = new SecretService();
 var secrets = service.List();
 ```
 
-
 ### Get a secret value by secret key
+
 ```csharp
 // Get a secret value by secret key.
 // If they Key does not exist, SDK will return the defaultValue
@@ -158,8 +161,8 @@ var secretValue = service.Get(
 Console.WriteLine(secretValue);
 ```
 
-
 ### Create new secret
+
 ```csharp
 
 var service = new SecretService();
@@ -208,7 +211,7 @@ var environments = service.List();
 ```csharp
 
 var service = new EnvironmentService();
-var environment = Service.Get(name: "YOUR_ENV_NAME");
+var environment = service.Get(name: "YOUR_ENV_NAME");
 Console.WriteLine(environment);
 ```
 
@@ -240,6 +243,53 @@ var updatedEnv = service.Modify(
     updateOptions:opton
     );
 ```
+
+### Error Handling
+
+Locker Secret SDK offers some kinds of errors. They can reflect external events, like invalid credentials, network
+interruptions, or code problems, like invalid API calls.
+
+If an immediate problem prevents a function from continuing, the SDK raises an exception. It’s a best practice to catch
+and handle exceptions. To catch an exception, use C Sharp’s `try/catch` syntax. Catch `LockerError` or its
+subclasses to handle Locker-specific exceptions only. Each subclass represents a different kind of exception. When you
+catch an exception, you can use its class to choose a response.
+
+Example:
+
+```csharp
+using Locker;
+
+LockerConfiguration.Instance.Init();
+SecretService service = new SecretService();
+var secretCreateOptions = new SecretCreateOptions
+{
+    Key = "your_secret_key",
+    Value = "your_secret_value",
+    Description = "your_secret_description",
+    EnvironemntName = "your_secret_environment_name"
+};
+try
+{
+    Secret newSecret = (Secret)service.Create(secretCreateOptions);
+    Console.WriteLine(newSecret);
+}
+catch (LockerError e)
+{
+    Console.WriteLine(e);
+    throw;
+}
+```
+
+In the SDK, error objects belong to LockerError and its subclasses. Use the documentation for each class
+for advice about how to respond.
+
+| Name                    | Class                 | Description                                                                                                                                        |
+|-------------------------|-----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
+| Authentication Error    | AuthenticationError   | Invalid `access_client_id` or `invalid secret_access_key`                                                                                          |
+| Permission Denied Error | PermissionDeniedError | Your credential does not have enough permission to execute this operation                                                                          |
+| RateLimit Error         | RateLimitError        | Too many requests                                                                                                                                  |
+| API Error               | APIError              | You made an API call with the wrong parameters, in the wrong state, or in an invalid way or Something went wrong on Locker’s end (These are rare.) |
+| CLI Run Error           | CliRunError           | The encryption/decryption binary runs errors by invalid local data, process interruptions, or invalid `secret_access_key`                          |
 
 ## Examples
 
