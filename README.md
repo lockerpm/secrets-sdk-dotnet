@@ -61,17 +61,61 @@ From within Visual Studio:
 
 ## Usages
 
-### Set up access key
+### Configuration access key
 
-The SDK needs to be configured with your access key which is available in your Locker Secret Dashboard.
-Initialize the `access_key_id` and `secret_access_key` to its value.
-You also need to set `api_base` value (default is `https://secrets-core.locker.io`).
+The SDK needs to be configured with your access key id and your secret access key, which is available in your Locker
+Secret Dashboard. These keys must not be disclosed.These keys must not be disclosed. If you reveal these keys, you need
+to revoke them immediately. Environment variables are a good solution and they are easy to consume in most programming
+languages.
 
+#### Set up credentials on Linux/MacOS
+
+```shell
+export ACCESS_KEY_ID=<YOUR_ACCESS_KEY_ID>
+export SECRET_ACCESS_KEY=<YOUR_SECRET_ACCESS_KEY>
+```
+
+#### Set up credentials on Windows
+
+Powershell
+
+```shell
+$Env:ACCESS_KEY_ID = '<YOUR_ACCESS_KEY_ID>'
+$Env:SECRET_ACCESS_KEY = '<SECRET_ACCESS_KEY>'
+```
+
+Command Prompt
+
+```shell
+set ACCESS_KEY_ID=<YOUR_ACCESS_KEY_ID>
+set SECRET_ACCESS_KEY=<YOUR_SECRET_ACCESS_KEY>
+```
+
+You also need to set `api_base` value (default is `https://api.locker.io/locker_secrets`).
 If you need to set your custom headers, you also need to set `headers` value in the `options` param:
 
 ```csharp
 using Locker;
 
+string apiBase = "YOUR_API_BASE";
+Dictionary<string, string> headers = new Dictionary<string, string>()
+{
+    { "CF-Access-Client-Id", "YOUR_CF_ACCESS_CLIENT_ID" },
+    { "CF-Access-Client-Secret", "YOUR_CF_ACCESS_CLIENT_SECRET" }
+};
+LockerConfiguration.Instance.Init(
+    apiBase: apiBase,
+    headers: headers
+);
+
+
+```
+
+You can also pass parameters in the Init() method or use the shared credential file (~/.locker/credentials), but we do
+not recommend these ways.
+
+```csharp
+using Locker;
 
 string accessKeyId = "YOUR_ACCESS_KEY_ID";
 string secretAccessKey = "YOUR_SECRET_ACCESS_KEY";

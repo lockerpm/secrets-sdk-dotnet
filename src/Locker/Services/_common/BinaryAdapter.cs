@@ -76,13 +76,6 @@
 
             string myAccessKeyId = this._accessKeyId ?? LockerConfiguration.Instance.AccessKeyId;
             string mySecretAccessKey = this._secretAccessKey ?? LockerConfiguration.Instance.SecretAccessKey;
-            if (myAccessKeyId == null || mySecretAccessKey == null)
-            {
-                throw new AuthenticationError(
-                    "No Access key id or Access key secret provided." +
-                    "(HINT: set your API key using LockerConfiguration.AccessKeyId= <ACCESS-KEY-ID>) " +
-                    "You can generate Access Key from the Locker Secret web interface.");
-            }
 
             string defaultUserAgent = $"CSharp - {LockerConfiguration.Instance.SdkVersion}";
             string arguments =
