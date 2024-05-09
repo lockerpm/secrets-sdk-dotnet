@@ -51,5 +51,11 @@
         /// </summary>
         [JsonProperty("description")]
         public string Description { get; set; }
+
+        /// <summary>
+        /// String representing the object's hash.
+        /// </summary>
+        [JsonProperty("hash")]
+        public string Hash { get; set; }
     }
 }

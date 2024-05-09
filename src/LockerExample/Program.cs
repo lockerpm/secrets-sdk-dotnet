@@ -7,23 +7,60 @@ namespace LockerExample
         public static void Main(string[] args)
         {
             LockerConfiguration.Instance.Init();
-            var secrets = SecretExample.ListSecret();
-            Console.WriteLine($"List secrets: {secrets}");
-            var secret = SecretExample.GetSecret();
-            Console.WriteLine($"Get secret:\n{secret}");
-            var updatedSecret = SecretExample.ModifySecret();
-            Console.WriteLine($"Updated secret:\n{updatedSecret}");
-            var newSecret = SecretExample.CreateSecret();
-            Console.WriteLine($"New secret:\n{newSecret}");
+            var jsonRequestOptions = new RequestOptions()
+            {
+                IsJson = true
+            };
 
-            var envs = EnvironmentExample.ListEnvironment();
-            Console.WriteLine($"List env:\n{envs}");
-            var env = EnvironmentExample.GetEnvironment();
-            Console.WriteLine($"Get env: {env}");
-            var updatedEnv = EnvironmentExample.ModifyEnvironment();
-            Console.WriteLine($"Updated env: {updatedEnv}");
-            var newEnv = EnvironmentExample.CreateEnvironment();
-            Console.WriteLine($"New Env:\n {newEnv}");
+            String envPrefixName = "env_dev";
+            String envTail = "_1";
+            String envName = envPrefixName + envTail;
+            String updateEnvName = "update_" + envName;
+
+            // Test environment
+            EnvironmentService environmentService = new EnvironmentService();
+
+            var environments = environmentService.List(null, null);
+            Console.WriteLine(environments);
+
+            // Create env
+            // var newEnv = environmentService.Create(new EnvironmentCreateOptions()
+            // {
+            //     Name = envName,
+            //     ExternalUrl = envName,
+            //     Description = envName
+            // });
+            // Console.WriteLine(newEnv);
+            //
+            // // Retrieve env
+            // var retrieveEnv = environmentService.Get(envName, null, jsonRequestOptions);
+            // Console.WriteLine(retrieveEnv);
+            //
+            // // Update env
+            // EnvironmentUpdateOptions environmentUpdateOptions = new EnvironmentUpdateOptions()
+            // {
+            //     Name = updateEnvName,
+            //     ExternalUrl = updateEnvName,
+            //     Description = updateEnvName
+            // };
+            // var updatedEnv = environmentService.Modify(envName, environmentUpdateOptions, jsonRequestOptions);
+            // Console.WriteLine(updatedEnv);
+            // Console.WriteLine(environmentService.Get(updateEnvName, null, jsonRequestOptions));
+            //
+            // Console.WriteLine(environmentService.Modify(
+            //     updateEnvName,
+            //     new EnvironmentUpdateOptions()
+            //     {
+            //         Name = envName,
+            //         Description = envName,
+            //         ExternalUrl = envName
+            //     }, null)
+            // );
+
+            SecretService secretService = new SecretService();
+            Console.WriteLine(
+                secretService.List(null,jsonRequestOptions)
+                );
         }
     }
 }

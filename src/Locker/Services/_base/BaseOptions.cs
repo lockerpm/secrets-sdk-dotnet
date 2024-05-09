@@ -50,5 +50,11 @@
         {
             this.ExtraParams.Add(key, value);
         }
+
+
+        public virtual string BuildOptions()
+        {
+            throw new NotImplementedException();
+        }
     }
 }
