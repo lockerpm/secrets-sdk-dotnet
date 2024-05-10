@@ -87,23 +87,9 @@
 
             if (this._isJson)
             {
-                arguments += " --verbose";
+                arguments += " --json";
             }
 
-            string? postData = null;
-            if (cli.Contains("get") || cli.Contains("delete"))
-            {
-            }
-            else if (cli.Contains("update") || cli.Contains("create"))
-            {
-                postData = JsonConvert.SerializeObject(options ?? new BaseOptions());
-                postData = postData.Replace("\"", "\\\"");
-            }
-
-            if (postData != null)
-            {
-                arguments = $"{arguments} --data \"{postData}\"";
-            }
 
             var headers = this._headers ?? LockerConfiguration.Instance.Headers;
 
@@ -131,6 +117,7 @@
             process.Start();
             string output = process.StandardOutput.ReadToEnd();
             process.WaitForExit();
+
             if (process.ExitCode == 0)
             {
                 raw = output;
@@ -268,7 +255,6 @@
 
         private Exception SpecificCliError(JObject errorData)
         {
-            //TODO: log error data
             errorData.TryGetValue("status_code", out var statusCode);
             errorData.TryGetValue("error", out var errorCode);
             errorData.TryGetValue("message", out var message);
