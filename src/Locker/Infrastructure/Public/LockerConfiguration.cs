@@ -7,6 +7,7 @@
     using System.IO;
     using System.Security.AccessControl;
     using System.Diagnostics;
+    using System.Runtime.InteropServices;
 
 
     /// <summary>
@@ -54,7 +55,7 @@
         {
             string homeDir = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile);
             _lockerDir = Path.Combine(homeDir, ".locker");
-            _binaryVersion = "1.0.94";
+            _binaryVersion = "1.0.98";
             _binaryFilePath = Path.Combine(_lockerDir, $"locker_binary-{this._binaryVersion}");
         }
 
@@ -62,11 +63,9 @@
         {
             string binaryUrl;
             var currentPlatform = System.Environment.OSVersion.Platform;
-            if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform
-                    .OSX))
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
-                if (System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture ==
-                    System.Runtime.InteropServices.Architecture.Arm)
+                if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
                 {
                     binaryUrl = $"https://s.locker.io/download/locker-cli-mac-arm64-{_binaryVersion}";
                 }
@@ -75,8 +74,7 @@
                     binaryUrl = $"https://s.locker.io/download/locker-cli-mac-x64-{_binaryVersion}";
                 }
             }
-            else if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices
-                         .OSPlatform.Windows))
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 binaryUrl = $"https://s.locker.io/download/locker-cli-win-x64-{_binaryVersion}.exe";
 
@@ -84,7 +82,15 @@
             }
             else
             {
-                binaryUrl = $"https://s.locker.io/download/locker-cli-linux-x64-{_binaryVersion}";
+                if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
+                {
+                    binaryUrl = $"https://s.locker.io/download/locker-cli-linux-arm64-{_binaryVersion}";
+                }
+                else
+                {
+                    binaryUrl = $"https://s.locker.io/download/locker-cli-linux-x64-{_binaryVersion}";
+                }
+                
             }
 
             // Check if the .locker directory exists, and create it if not
@@ -101,7 +107,6 @@
                     Console.WriteLine($"saving to {Path.GetFullPath(_binaryFilePath)}");
                     client.DownloadFile(binaryUrl, _binaryFilePath);
                 }
-
                 try
                 {
                     switch (currentPlatform)
