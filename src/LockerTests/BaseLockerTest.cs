@@ -11,6 +11,15 @@ namespace LockerTests
     [Collection("locker-mock tests")]
     public class BaseLockerTest
     {
+        protected RequestOptions _jsonOpts = new RequestOptions()
+        {
+            IsJson = true
+        };
+
+        protected RequestOptions _notJsonOpts = new RequestOptions()
+        {
+            IsJson = false
+        };
         /// <summary>
         /// Initializes a new instance of the <see cref="BaseLockerTest"/> class with no fixtures.
         /// </summary>

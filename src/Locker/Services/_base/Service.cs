@@ -21,22 +21,16 @@ namespace Locker
 
         protected object CreateEntity(BaseOptions options, RequestOptions requestOptions)
         {
+            String cli = $"{BaseCli} create";
+            String option = options.BuildOptions();
+            cli += option;
             return this.Call(
-                cli_: $"{BaseCli} create",
+                cli_: cli,
                 options: options,
                 requestOptions: requestOptions
             );
         }
 
-
-        protected object GetEntity(string name, BaseOptions options, RequestOptions requestOptions)
-        {
-            return this.Call(
-                cli_: $"{BaseCli} get --name {name}",
-                options: options,
-                requestOptions: requestOptions
-            );
-        }
 
         protected object ListEntities(ListOptions options, RequestOptions requestOptions)
         {
@@ -57,14 +51,6 @@ namespace Locker
             );
         }
 
-        protected object UpdateEntity(string name, BaseOptions options, RequestOptions requestOptions)
-        {
-            return this.Call(
-                cli_: $"{BaseCli} update --name {name}",
-                options: options,
-                requestOptions: requestOptions
-            );
-        }
 
         protected object Call(string cli_, RequestOptions requestOptions, BaseOptions options = null)
         {

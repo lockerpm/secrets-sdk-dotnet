@@ -10,6 +10,17 @@
 
         [JsonProperty("description")] public string Description { get; set; }
 
-        [JsonProperty("environment_name")] public string EnvironemntName { get; set; } = null;
+        [JsonProperty("environment_name")] public string EnvironmentName { get; set; } = null;
+
+        public override string BuildOptions()
+        {
+            string cli = $" --key {Key} --value {Value} --description {Description}";
+            if (EnvironmentName != null)
+            {
+                cli += $" --environment {EnvironmentName}";
+            }
+
+            return cli;
+        }
     }
 }
