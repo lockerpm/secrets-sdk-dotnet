@@ -7,6 +7,7 @@ with open("Locker/Locker.csproj") as xml_file:
     version = data_dict['Project']['PropertyGroup']['Version']
     package_id = data_dict['Project']['PropertyGroup']['PackageId']
 
-    subprocess.run(['nuget', 'setApiKey'], input=os.getenv('NUGET_API_KEY'), text=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # subprocess.run(['nuget', 'setApiKey'], input=os.getenv('NUGET_API_KEY'), text=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
+    os.system(f'nuget setApiKey os.getenv('NUGET_API_KEY')')
     os.system(f'nuget push Locker\\bin\\Release\\{package_id}.{version}.nupkg')
