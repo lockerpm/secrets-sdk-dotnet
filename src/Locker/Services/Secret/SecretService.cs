@@ -24,15 +24,22 @@
             return this.CreateEntity(createOptions, requestOptions);
         }
 
-        public object Get(string name, SecretRetrieveOptions retrieveOptions = null, RequestOptions requestOptions = null)
+        public object Get(string name, SecretRetrieveOptions retrieveOptions = null,
+            RequestOptions requestOptions = null)
         {
-            return this.GetEntity(name, retrieveOptions, requestOptions);
+            string cli_ = $"{BaseCli} get --key {name}";
+
+            return this.Call(
+                cli_: cli_,
+                options: retrieveOptions,
+                requestOptions: requestOptions
+            );
         }
 
         public object Get(string name, string environmentName, SecretRetrieveOptions retrieveOptions = null,
             RequestOptions requestOptions = null)
         {
-            string cli_ = $"{BaseCli} get --name {name} --env {environmentName}";
+            string cli_ = $"{BaseCli} get --key {name} --environment {environmentName}";
 
             return this.Call(
                 cli_: cli_,
@@ -78,15 +85,23 @@
 
         public object Modify(string name, SecretUpdateOptions updateOptions, RequestOptions requestOptions = null)
         {
-            updateOptions.Key = updateOptions.Key ?? name;
+            string cli_ = $"{BaseCli} update --key {name}";
+            string cliOpts = updateOptions.BuildOptions();
+            cli_ += cliOpts;
 
-            return this.UpdateEntity(name, updateOptions, requestOptions);
+            return this.Call(
+                cli_: cli_,
+                options: updateOptions,
+                requestOptions: requestOptions
+            );
         }
 
         public object Modify(string name, string environmentName, SecretUpdateOptions updateOptions,
             RequestOptions requestOptions = null)
         {
-            string cli_ = $"{BaseCli} update --name {name} --env {environmentName}";
+            string cli_ = $"{BaseCli} update --key {name} --environment {environmentName}";
+            string cliOpts = updateOptions.BuildOptions();
+            cli_ += cliOpts;
 
             return this.Call(
                 cli_: cli_,

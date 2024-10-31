@@ -26,8 +26,8 @@
             var options = new SecretRetrieveOptions();
             var requestOptions = new RequestOptions();
             object value = Service.GetSecret(
-                name: "key1",
-                defaultValue: "default",
+                name: "Key1",
+                // defaultValue: "default",
                 retrieveOptions: options,
                 requestOptions: requestOptions
             );
@@ -38,9 +38,9 @@
         {
             var option = new Locker.SecretCreateOptions
             {
-                Key = "key5",
-                Value = "key5 value",
-                Description = "key5 description",
+                Key = "Key 3",
+                Value = "Value 3",
+                Description = "Desc 3",
             };
             var requestOptions = new RequestOptions();
             var secret = Service.Create(option, requestOptions);
@@ -55,7 +55,7 @@
                 Description = "test1 new description",
             };
             var requestOptions = new RequestOptions();
-            var secret = Service.Modify( "test1", updateOptions: option, requestOptions);
+            var secret = Service.Modify("test1", updateOptions: option, requestOptions);
             return secret;
         }
     }

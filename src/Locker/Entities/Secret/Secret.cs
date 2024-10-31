@@ -26,25 +26,25 @@ namespace Locker
         /// Number representing the object's revision date.
         /// </summary>
         [JsonProperty("revision_date")]
-        public float RevisionDate { get; set; }
+        public float? RevisionDate { get; set; }
 
         /// <summary>
         /// Number representing the object's update date.
         /// </summary>
         [JsonProperty("updated_date")]
-        public float UpdatedDate { get; set; }
+        public float? UpdatedDate { get; set; }
 
         /// <summary>
         /// Number representing the object's deleted date.
         /// </summary>
         [JsonProperty("deleted_date")]
-        public float DeletedDate { get; set; }
+        public float? DeletedDate { get; set; }
 
         /// <summary>
         /// Number representing the object's last use date.
         /// </summary>
         [JsonProperty("last_use_date")]
-        public float LastUseDate { get; set; }
+        public float? LastUseDate { get; set; }
 
         /// <summary>
         /// Nested object representing the object's data.
@@ -87,5 +87,11 @@ namespace Locker
         /// </summary>
         [JsonProperty("description")]
         public string Description { get; set; }
+
+        /// <summary>
+        /// String representing the object's hash.
+        /// </summary>
+        [JsonProperty("hash")]
+        public string Hash { get; set; }
     }
 }
