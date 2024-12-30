@@ -1,4 +1,6 @@
-﻿namespace Locker
+﻿using System.Text;
+
+namespace Locker
 {
     using System.Diagnostics;
     using System.Security.AccessControl;
@@ -16,7 +18,13 @@
         private string _apiVersion;
         private Dictionary<string, string> _headers;
         private PlatformID _systemPlatform;
+        static string EscapeArgument(string argument)
+        {
+            if (string.IsNullOrEmpty(argument))
+                return string.Empty;
 
+            return argument.Replace("\"", "\\\"").Replace(";", "").Replace("&", "").Replace("|", "");
+        }
         public BinaryAdapter(string accessKeyId = null, string secretAccessKey = null, string apiBase = null,
             string apiVersion = null, bool isJson = false,
             Dictionary<string, string> headers = null)
@@ -78,21 +86,27 @@
             string mySecretAccessKey = this._secretAccessKey ?? LockerConfiguration.Instance.SecretAccessKey;
 
             string defaultUserAgent = $"CSharp - {LockerConfiguration.Instance.SdkVersion}";
-            string arguments =
-                $"{cli} --access-key-id \"{myAccessKeyId}\" --secret-access-key \"{mySecretAccessKey}\" --agent {defaultUserAgent}";
+            var argumentBuilder = new StringBuilder();
+
+// Safe argument concatenation with escaping
+            argumentBuilder.AppendFormat("{0} ", cli);
+            argumentBuilder.AppendFormat("--access-key-id \"{0}\" ", EscapeArgument(myAccessKeyId));
+            argumentBuilder.AppendFormat("--secret-access-key \"{0}\" ", EscapeArgument(mySecretAccessKey));
+            argumentBuilder.AppendFormat("--agent \"{0}\" ", EscapeArgument(defaultUserAgent));
+
             if (!String.IsNullOrEmpty(_apiBase))
             {
-                arguments = $"{arguments} --api-base {_apiBase}";
+                argumentBuilder.AppendFormat("--api-base \"{0}\" ", EscapeArgument(_apiBase));
             }
 
             if (this._isJson)
             {
-                arguments += " --json";
+                argumentBuilder.Append("--json ");
             }
 
 
             var headers = this._headers ?? LockerConfiguration.Instance.Headers;
-
+            
             List<string> headerList = new List<string>();
             foreach (var pair in headers)
             {
@@ -100,11 +114,11 @@
             }
 
             string headerStr = String.Join(",", headerList);
-            arguments += $" --headers \"{headerStr}\"";
+            argumentBuilder.AppendFormat("--headers \"{0}\" ", EscapeArgument(headerStr));
 
             ProcessStartInfo startInfo = new ProcessStartInfo();
             startInfo.FileName = binaryFile;
-            startInfo.Arguments = arguments;
+            startInfo.Arguments = argumentBuilder.ToString().TrimEnd();
 
             startInfo.RedirectStandardOutput = true;
             startInfo.RedirectStandardError = true;
