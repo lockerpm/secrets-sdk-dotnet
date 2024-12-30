@@ -28,14 +28,25 @@
         public object Get(string name, EnvironmentRetrieveOptions retrieveOptions = null,
             RequestOptions requestOptions = null)
         {
-            return this.GetEntity(name, retrieveOptions, requestOptions);
+            String cli = $"{BaseCli} get --name {name}";
+            return this.Call(
+                cli_: cli,
+                options: retrieveOptions,
+                requestOptions: requestOptions
+            );
         }
 
         public object Modify(string name, EnvironmentUpdateOptions updateOptions,
             RequestOptions requestOptions = null)
         {
-            updateOptions.Name = updateOptions.Name ?? name;
-            return this.UpdateEntity(name, updateOptions, requestOptions);
+            String cli = $"{BaseCli} update --name {name}";
+            String cliOpts = updateOptions.BuildOptions();
+            cli += cliOpts;
+            return this.Call(
+                cli_: cli,
+                options: updateOptions,
+                requestOptions: requestOptions
+            );
         }
     }
 }

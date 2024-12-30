@@ -1,4 +1,6 @@
-﻿namespace Locker
+﻿using System.Text;
+
+namespace Locker
 {
     using System.Diagnostics;
     using System.Security.AccessControl;
@@ -16,7 +18,13 @@
         private string _apiVersion;
         private Dictionary<string, string> _headers;
         private PlatformID _systemPlatform;
+        static string EscapeArgument(string argument)
+        {
+            if (string.IsNullOrEmpty(argument))
+                return string.Empty;
 
+            return argument.Replace("\"", "\\\"").Replace(";", "").Replace("&", "").Replace("|", "");
+        }
         public BinaryAdapter(string accessKeyId = null, string secretAccessKey = null, string apiBase = null,
             string apiVersion = null, bool isJson = false,
             Dictionary<string, string> headers = null)
@@ -76,44 +84,29 @@
 
             string myAccessKeyId = this._accessKeyId ?? LockerConfiguration.Instance.AccessKeyId;
             string mySecretAccessKey = this._secretAccessKey ?? LockerConfiguration.Instance.SecretAccessKey;
-            if (myAccessKeyId == null || mySecretAccessKey == null)
-            {
-                throw new AuthenticationError(
-                    "No Access key id or Access key secret provided." +
-                    "(HINT: set your API key using LockerConfiguration.AccessKeyId= <ACCESS-KEY-ID>) " +
-                    "You can generate Access Key from the Locker Secret web interface.");
-            }
 
             string defaultUserAgent = $"CSharp - {LockerConfiguration.Instance.SdkVersion}";
-            string arguments =
-                $"{cli} --access-key-id \"{myAccessKeyId}\" --secret-access-key \"{mySecretAccessKey}\" --agent {defaultUserAgent}";
+            var argumentBuilder = new StringBuilder();
+
+// Safe argument concatenation with escaping
+            argumentBuilder.AppendFormat("{0} ", cli);
+            argumentBuilder.AppendFormat("--access-key-id \"{0}\" ", EscapeArgument(myAccessKeyId));
+            argumentBuilder.AppendFormat("--secret-access-key \"{0}\" ", EscapeArgument(mySecretAccessKey));
+            argumentBuilder.AppendFormat("--agent \"{0}\" ", EscapeArgument(defaultUserAgent));
+
             if (!String.IsNullOrEmpty(_apiBase))
             {
-                arguments = $"{arguments} --api-base {_apiBase}";
+                argumentBuilder.AppendFormat("--api-base \"{0}\" ", EscapeArgument(_apiBase));
             }
 
             if (this._isJson)
             {
-                arguments += " --verbose";
+                argumentBuilder.Append("--json ");
             }
 
-            string? postData = null;
-            if (cli.Contains("get") || cli.Contains("delete"))
-            {
-            }
-            else if (cli.Contains("update") || cli.Contains("create"))
-            {
-                postData = JsonConvert.SerializeObject(options ?? new BaseOptions());
-                postData = postData.Replace("\"", "\\\"");
-            }
-
-            if (postData != null)
-            {
-                arguments = $"{arguments} --data \"{postData}\"";
-            }
 
             var headers = this._headers ?? LockerConfiguration.Instance.Headers;
-
+            
             List<string> headerList = new List<string>();
             foreach (var pair in headers)
             {
@@ -121,11 +114,11 @@
             }
 
             string headerStr = String.Join(",", headerList);
-            arguments += $" --headers \"{headerStr}\"";
+            argumentBuilder.AppendFormat("--headers \"{0}\" ", EscapeArgument(headerStr));
 
             ProcessStartInfo startInfo = new ProcessStartInfo();
             startInfo.FileName = binaryFile;
-            startInfo.Arguments = arguments;
+            startInfo.Arguments = argumentBuilder.ToString().TrimEnd();
 
             startInfo.RedirectStandardOutput = true;
             startInfo.RedirectStandardError = true;
@@ -138,6 +131,7 @@
             process.Start();
             string output = process.StandardOutput.ReadToEnd();
             process.WaitForExit();
+
             if (process.ExitCode == 0)
             {
                 raw = output;
@@ -275,24 +269,56 @@
 
         private Exception SpecificCliError(JObject errorData)
         {
-            //TODO: log error data
             errorData.TryGetValue("status_code", out var statusCode);
             errorData.TryGetValue("error", out var errorCode);
             errorData.TryGetValue("message", out var message);
-            if (errorCode == (JToken?)"rate_limit")
+            int statusCodeInt = (int)(statusCode ?? -1);
+            string errorCodeStr = (string)(errorCode ?? "_");
+            string messageStr = (string)(message ?? "");
+            if (statusCodeInt == 429 || errorCodeStr == "rate_limit")
             {
-                return new RateLimitError(message: (string)message, httpBody: JsonConvert.SerializeObject(errorData),
+                return new RateLimitError(message: messageStr, httpBody: JsonConvert.SerializeObject(errorData),
                     httpStatus: 429, errorCode: "rate_limit");
             }
 
-            if (errorCode == (JToken?)"permission_denied")
+            if (statusCodeInt == 403 || errorCodeStr == "permission_denied")
             {
-                return new PermissionDeniedError(message: (string)message,
+                return new PermissionDeniedError(message: messageStr,
                     httpBody: JsonConvert.SerializeObject(errorData),
                     httpStatus: 403, errorCode: "permission_denied");
             }
 
-            return new APIError(message: (string)message, httpBody: JsonConvert.SerializeObject(errorData));
+            if (statusCodeInt == 401 || errorCodeStr == "unauthorized" ||
+                errorCode == (JToken?)"invalid_secret_access_key")
+            {
+                return new AuthenticationError(message: messageStr,
+                    httpBody: JsonConvert.SerializeObject(errorData),
+                    httpStatus: 401, errorCode: errorCodeStr);
+            }
+
+            if (statusCodeInt == 404 || errorCodeStr == "not_found")
+            {
+                return new ResourceNotFoundError(message: messageStr,
+                    httpBody: JsonConvert.SerializeObject(errorData),
+                    httpStatus: 404, errorCode: "permission_denied");
+            }
+
+
+            if (statusCodeInt >= 500 || errorCodeStr == "server_error")
+            {
+                return new APIServerError(message: messageStr,
+                    httpBody: JsonConvert.SerializeObject(errorData),
+                    httpStatus: statusCodeInt, errorCode: errorCodeStr);
+            }
+
+            if (errorCodeStr == "http_error")
+            {
+                return new APIConnectionError(message: messageStr,
+                    httpBody: JsonConvert.SerializeObject(errorData));
+            }
+
+
+            return new APIError(message: messageStr, httpBody: JsonConvert.SerializeObject(errorData));
         }
     }
 }

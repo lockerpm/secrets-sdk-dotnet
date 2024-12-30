@@ -76,6 +76,13 @@
         public AuthenticationError(string message) : base(message)
         {
         }
+
+        public AuthenticationError(string? message = null, string httpBody = null, int httpStatus = default,
+            string jsonBody = null,
+            string headers = null, string errorCode = null) : base(message, httpBody, httpStatus, jsonBody, headers,
+            errorCode)
+        {
+        }
     }
 
     public class PermissionDeniedError : LockerError
@@ -107,6 +114,60 @@
         }
 
         public RateLimitError(string? message = null, string httpBody = null, int httpStatus = default,
+            string jsonBody = null,
+            string headers = null, string errorCode = null) : base(message, httpBody, httpStatus, jsonBody, headers,
+            errorCode)
+        {
+        }
+    }
+
+    public class ResourceNotFoundError : LockerError
+    {
+        public ResourceNotFoundError() : base()
+        {
+        }
+
+        public ResourceNotFoundError(string message) : base(message)
+        {
+        }
+
+        public ResourceNotFoundError(string? message = null, string httpBody = null, int httpStatus = default,
+            string jsonBody = null,
+            string headers = null, string errorCode = null) : base(message, httpBody, httpStatus, jsonBody, headers,
+            errorCode)
+        {
+        }
+    }
+
+    public class APIServerError : LockerError
+    {
+        public APIServerError() : base()
+        {
+        }
+
+        public APIServerError(string message) : base(message)
+        {
+        }
+
+        public APIServerError(string? message = null, string httpBody = null, int httpStatus = default,
+            string jsonBody = null,
+            string headers = null, string errorCode = null) : base(message, httpBody, httpStatus, jsonBody, headers,
+            errorCode)
+        {
+        }
+    }
+
+    public class APIConnectionError : LockerError
+    {
+        public APIConnectionError() : base()
+        {
+        }
+
+        public APIConnectionError(string message) : base(message)
+        {
+        }
+
+        public APIConnectionError(string? message = null, string httpBody = null, int httpStatus = default,
             string jsonBody = null,
             string headers = null, string errorCode = null) : base(message, httpBody, httpStatus, jsonBody, headers,
             errorCode)
