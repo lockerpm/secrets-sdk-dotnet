@@ -101,7 +101,7 @@ namespace Locker
 
             if (this._isJson)
             {
-                argumentBuilder.Append("--json ");
+                argumentBuilder.Append("--output-format json ");
             }
 
 

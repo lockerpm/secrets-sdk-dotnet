@@ -55,7 +55,7 @@
         {
             string homeDir = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile);
             _lockerDir = Path.Combine(homeDir, ".locker");
-            _binaryVersion = "1.0.98";
+            _binaryVersion = "1.0.100";
             _binaryFilePath = Path.Combine(_lockerDir, $"locker_binary-{this._binaryVersion}");
         }
 
