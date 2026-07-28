@@ -1,97 +1,55 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 
-namespace Locker
+namespace Locker;
+
+public class Secret : LockerEntity<Secret>, IHasId, IHasObject
 {
-    public class Secret : LockerEntity<Secret>, IHasId, IHasObject
-    {
-        /// <summary>
-        /// Unique identifier for the object.
-        /// </summary>
-        [JsonProperty("id")]
-        public string Id { get; set; }
+    [JsonProperty("object", Required = Required.Always)]
+    public string Object { get; set; } = "secret";
 
-        /// <summary>
-        /// String representing the object's type. Objects of the same type share the same value.
-        /// </summary>
-        [JsonProperty("object")]
-        public string Object { get; set; }
+    [JsonProperty("id", Required = Required.Always)]
+    public string Id { get; set; } = string.Empty;
 
-        /// <summary>
-        /// Number representing the object's creation date.
-        /// </summary>
-        [JsonProperty("creation_date")]
-        public float CreationDate { get; set; }
+    [JsonProperty("creation_date", Required = Required.Always)]
+    public double CreationDate { get; set; }
 
-        /// <summary>
-        /// Number representing the object's revision date.
-        /// </summary>
-        [JsonProperty("revision_date")]
-        public float? RevisionDate { get; set; }
+    [JsonProperty("revision_date", Required = Required.Always)]
+    public double RevisionDate { get; set; }
 
-        /// <summary>
-        /// Number representing the object's update date.
-        /// </summary>
-        [JsonProperty("updated_date")]
-        public float? UpdatedDate { get; set; }
+    [JsonProperty("updated_date", Required = Required.AllowNull)]
+    public double? UpdatedDate { get; set; }
 
-        /// <summary>
-        /// Number representing the object's deleted date.
-        /// </summary>
-        [JsonProperty("deleted_date")]
-        public float? DeletedDate { get; set; }
+    [JsonProperty("deleted_date", Required = Required.AllowNull)]
+    public double? DeletedDate { get; set; }
 
-        /// <summary>
-        /// Number representing the object's last use date.
-        /// </summary>
-        [JsonProperty("last_use_date")]
-        public float? LastUseDate { get; set; }
+    [JsonProperty("last_use_date", Required = Required.AllowNull)]
+    public double? LastUseDate { get; set; }
 
-        /// <summary>
-        /// Nested object representing the object's data.
-        /// </summary>
-        [JsonProperty("data")]
-        public SecretData Data { get; set; }
+    [JsonProperty("project_id", Required = Required.Always)]
+    public long ProjectId { get; set; }
 
-        /// <summary>
-        /// String representing the object's environment id.
-        /// </summary>
-        [JsonProperty("environment_id")]
-        public string EnvironmentId { get; set; }
+    [JsonProperty("environment_id", Required = Required.AllowNull)]
+    public string? EnvironmentId { get; set; }
 
-        /// <summary>
-        /// String representing the object's environment name.
-        /// </summary>
-        [JsonProperty("environment_name")]
-        public string EnvironmentName { get; set; }
+    [JsonProperty("environment_name", Required = Required.AllowNull)]
+    public string? EnvironmentName { get; set; }
 
-        /// <summary>
-        /// String representing the object's project id.
-        /// </summary>
-        [JsonProperty("project_id")]
-        public string ProjectId { get; set; }
+    [JsonProperty("key", Required = Required.Always)]
+    public string Key { get; set; } = string.Empty;
 
-        /// <summary>
-        /// String representing the object's key.
-        /// </summary>
-        [JsonProperty("key")]
-        public string Key { get; set; }
+    [JsonProperty("value", Required = Required.Always)]
+    public string Value { get; set; } = string.Empty;
 
-        /// <summary>
-        /// String representing the object's value.
-        /// </summary>
-        [JsonProperty("value")]
-        public string Value { get; set; }
+    [JsonProperty("description", Required = Required.Always)]
+    public string Description { get; set; } = string.Empty;
 
-        /// <summary>
-        /// String representing the object's description.
-        /// </summary>
-        [JsonProperty("description")]
-        public string Description { get; set; }
+    [JsonIgnore]
+    [Obsolete("Protocol v1 returns key, value, and description directly.")]
+    public SecretData? Data { get; set; }
 
-        /// <summary>
-        /// String representing the object's hash.
-        /// </summary>
-        [JsonProperty("hash")]
-        public string Hash { get; set; }
-    }
+    [JsonIgnore]
+    [Obsolete("Protocol v1 deliberately excludes internal hashes.")]
+    public string? Hash { get; set; }
+
+    public override string ToString() => $"<Locker.Secret id={Id} key={Key}>";
 }

@@ -1,4 +1,4 @@
-﻿namespace Locker
+namespace Locker
 {
     using Newtonsoft.Json;
 
@@ -10,7 +10,7 @@
     public class BaseOptions : INestedOptions
     {
         [JsonProperty("expand", NullValueHandling = NullValueHandling.Ignore)]
-        public List<string> Expand { get; set; }
+        public List<string>? Expand { get; set; }
 
         /// <summary>Dictionary containing extra request parameters.</summary>
         [JsonExtensionData]
@@ -52,9 +52,7 @@
         }
 
 
-        public virtual string BuildOptions()
-        {
-            throw new NotImplementedException();
-        }
+        [Obsolete("Human CLI argument construction is not supported by protocol v1.")]
+        public virtual string BuildOptions() => string.Empty;
     }
 }

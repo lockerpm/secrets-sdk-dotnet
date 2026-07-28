@@ -1,177 +1,186 @@
-﻿namespace Locker
+namespace Locker;
+
+/// <summary>Base class for safe Locker SDK failures.</summary>
+public class LockerError : Exception
 {
-    using System.Diagnostics;
-
-    public class LockerError : Exception
+    public LockerError(string message, Exception? innerException = null)
+        : base(message, innerException)
     {
-        private string _errorCode;
-        private string _headers;
-        private string _httpBody;
-        private int _httpStatus;
-        private string _jsonBody;
-
-        public LockerError() : base()
-        {
-        }
-
-        public LockerError(string message) : base(message)
-        {
-        }
-
-        public LockerError(string message, Exception err) : base(message, err)
-        {
-        }
-
-        public LockerError(string? message = null, string httpBody = null, int httpStatus = default,
-            string jsonBody = null,
-            string headers = null, string errorCode = null) : base(message)
-        {
-            this._httpBody = httpBody;
-            this._httpStatus = httpStatus;
-            this._jsonBody = httpBody;
-            this._headers = headers;
-            this._errorCode = errorCode;
-        }
     }
 
-    public class APIError : LockerError
+    internal LockerError(
+        string message,
+        int? code,
+        string? requestId,
+        string? kind,
+        bool? retryable,
+        int? cliExitCode = null,
+        Exception? innerException = null)
+        : base(message, innerException)
     {
-        public APIError() : base()
-        {
-        }
-
-        public APIError(string message) : base(message)
-        {
-        }
-
-        public APIError(string? message = null, string httpBody = null, int httpStatus = default,
-            string jsonBody = null,
-            string headers = null, string errorCode = null) : base(message, httpBody, httpStatus, jsonBody, headers,
-            errorCode)
-        {
-        }
+        Code = code;
+        RequestId = requestId;
+        Kind = kind;
+        Retryable = retryable;
+        CliExitCode = cliExitCode;
     }
 
-    public class CliRunError : LockerError
+    public int? Code { get; }
+
+    public string? RequestId { get; }
+
+    public string? Kind { get; }
+
+    public bool? Retryable { get; }
+
+    public int? CliExitCode { get; }
+}
+
+public class APIError : LockerError
+{
+    internal APIError(string message, int code, string requestId, string kind, bool retryable)
+        : base(message, code, requestId, kind, retryable)
     {
-        private Process _process;
-
-        public CliRunError() : base()
-        {
-        }
-
-
-        public CliRunError(string message, Process process = null) : base(message)
-        {
-            this._process = process;
-        }
     }
 
-    public class AuthenticationError : LockerError
+    public APIError(string message)
+        : base(message)
     {
-        public AuthenticationError() : base()
-        {
-        }
+    }
+}
 
-        public AuthenticationError(string message) : base(message)
-        {
-        }
+public class ProtocolError : LockerError
+{
+    internal ProtocolError(
+        string message,
+        int? code = null,
+        string? requestId = null,
+        string? kind = null,
+        Exception? innerException = null)
+        : base(message, code, requestId, kind, false, innerException: innerException)
+    {
+    }
+}
 
-        public AuthenticationError(string? message = null, string httpBody = null, int httpStatus = default,
-            string jsonBody = null,
-            string headers = null, string errorCode = null) : base(message, httpBody, httpStatus, jsonBody, headers,
-            errorCode)
-        {
-        }
+public class CliRunError : LockerError
+{
+    internal CliRunError(string message, int? exitCode = null, Exception? innerException = null)
+        : base(message, null, null, null, null, exitCode, innerException)
+    {
     }
 
-    public class PermissionDeniedError : LockerError
+    public CliRunError(string message)
+        : base(message)
     {
-        public PermissionDeniedError() : base()
-        {
-        }
+    }
+}
 
-        public PermissionDeniedError(string message) : base(message)
-        {
-        }
+public sealed class LockerTimeoutError : CliRunError
+{
+    internal LockerTimeoutError()
+        : base("Locker CLI protocol exchange timed out.")
+    {
+    }
+}
 
-        public PermissionDeniedError(string? message = null, string httpBody = null, int httpStatus = default,
-            string jsonBody = null,
-            string headers = null, string errorCode = null) : base(message, httpBody, httpStatus, jsonBody, headers,
-            errorCode)
-        {
-        }
+public sealed class LockerResponseTooLargeError : CliRunError
+{
+    internal LockerResponseTooLargeError(string streamName)
+        : base($"Locker CLI {streamName} exceeded the configured byte limit.")
+    {
+    }
+}
+
+public class AuthenticationError : LockerError
+{
+    internal AuthenticationError(string message, int code, string requestId, string kind, bool retryable)
+        : base(message, code, requestId, kind, retryable)
+    {
     }
 
-    public class RateLimitError : LockerError
+    public AuthenticationError(string message)
+        : base(message)
     {
-        public RateLimitError() : base()
-        {
-        }
+    }
+}
 
-        public RateLimitError(string message) : base(message)
-        {
-        }
-
-        public RateLimitError(string? message = null, string httpBody = null, int httpStatus = default,
-            string jsonBody = null,
-            string headers = null, string errorCode = null) : base(message, httpBody, httpStatus, jsonBody, headers,
-            errorCode)
-        {
-        }
+public class PermissionDeniedError : LockerError
+{
+    internal PermissionDeniedError(string message, int code, string requestId, string kind, bool retryable)
+        : base(message, code, requestId, kind, retryable)
+    {
     }
 
-    public class ResourceNotFoundError : LockerError
+    public PermissionDeniedError(string message)
+        : base(message)
     {
-        public ResourceNotFoundError() : base()
-        {
-        }
+    }
+}
 
-        public ResourceNotFoundError(string message) : base(message)
-        {
-        }
-
-        public ResourceNotFoundError(string? message = null, string httpBody = null, int httpStatus = default,
-            string jsonBody = null,
-            string headers = null, string errorCode = null) : base(message, httpBody, httpStatus, jsonBody, headers,
-            errorCode)
-        {
-        }
+public class RateLimitError : LockerError
+{
+    internal RateLimitError(string message, int code, string requestId, string kind, bool retryable)
+        : base(message, code, requestId, kind, retryable)
+    {
     }
 
-    public class APIServerError : LockerError
+    public RateLimitError(string message)
+        : base(message)
     {
-        public APIServerError() : base()
-        {
-        }
+    }
+}
 
-        public APIServerError(string message) : base(message)
-        {
-        }
-
-        public APIServerError(string? message = null, string httpBody = null, int httpStatus = default,
-            string jsonBody = null,
-            string headers = null, string errorCode = null) : base(message, httpBody, httpStatus, jsonBody, headers,
-            errorCode)
-        {
-        }
+public class ResourceNotFoundError : LockerError
+{
+    internal ResourceNotFoundError(string message, int code, string requestId, string kind, bool retryable)
+        : base(message, code, requestId, kind, retryable)
+    {
     }
 
-    public class APIConnectionError : LockerError
+    public ResourceNotFoundError(string message)
+        : base(message)
     {
-        public APIConnectionError() : base()
-        {
-        }
+    }
+}
 
-        public APIConnectionError(string message) : base(message)
-        {
-        }
+public class APIServerError : LockerError
+{
+    internal APIServerError(string message, int code, string requestId, string kind, bool retryable)
+        : base(message, code, requestId, kind, retryable)
+    {
+    }
 
-        public APIConnectionError(string? message = null, string httpBody = null, int httpStatus = default,
-            string jsonBody = null,
-            string headers = null, string errorCode = null) : base(message, httpBody, httpStatus, jsonBody, headers,
-            errorCode)
-        {
-        }
+    public APIServerError(string message)
+        : base(message)
+    {
+    }
+}
+
+public class APIConnectionError : LockerError
+{
+    internal APIConnectionError(string message, int code, string requestId, string kind, bool retryable)
+        : base(message, code, requestId, kind, retryable)
+    {
+    }
+
+    public APIConnectionError(string message)
+        : base(message)
+    {
+    }
+}
+
+public sealed class LocalStorageError : LockerError
+{
+    internal LocalStorageError(string message, int code, string requestId, string kind, bool retryable)
+        : base(message, code, requestId, kind, retryable)
+    {
+    }
+}
+
+public sealed class LockerCliDistributionUnavailableError : LockerError
+{
+    internal LockerCliDistributionUnavailableError(string message)
+        : base(message)
+    {
     }
 }

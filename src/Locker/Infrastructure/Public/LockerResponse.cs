@@ -1,4 +1,4 @@
-﻿namespace Locker
+namespace Locker
 {
     /// <summary>
     /// Represents a buffered textual response from Locker

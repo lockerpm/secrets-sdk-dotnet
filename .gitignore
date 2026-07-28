@@ -6,6 +6,10 @@
 # user
 *.user
 *.userprefs
+.env
+*.env
+!*.env.example
+!*.env.sample
 .vs
 
 project.lock.json

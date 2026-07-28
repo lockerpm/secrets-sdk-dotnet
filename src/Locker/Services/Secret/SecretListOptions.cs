@@ -1,10 +1,9 @@
-﻿namespace Locker
+namespace Locker;
+
+public class SecretListOptions : ListOptions
 {
-    public class SecretListOptions : ListOptions
-    {
-        public override string BuildOptions()
-        {
-            return "";
-        }
-    }
+    public string? EnvironmentName { get; set; }
+
+    [Obsolete("Human CLI argument construction is not supported by protocol v1.")]
+    public override string BuildOptions() => string.Empty;
 }

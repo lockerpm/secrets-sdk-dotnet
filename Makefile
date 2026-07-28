@@ -1,13 +1,16 @@
-.PHONY: update-version codegen-format test ci-test
-update-version:
-	@echo "$(VERSION)" > VERSION
-	@perl -pi -e 's|<Version>[.\-\d\w]+</Version>|<Version>$(VERSION)</Version>|' src/Locker/Locker.csproj
+.PHONY: format check test build pack
 
-codegen-format:
-	dotnet format src/Locker/Locker.csproj
+format:
+	dotnet format src/Locker.sln
 
-ci-test:
-	dotnet test src/LockerTests/LockerTests.csproj -c Debug
+check:
+	dotnet format src/Locker.sln --verify-no-changes
 
 test:
-	dotnet test -f net7.0 src/StripeTests/LockerTests.csproj -c Debug
+	dotnet test src/LockerTests/LockerTests.csproj --configuration Release
+
+build:
+	dotnet build src/Locker.sln --configuration Release
+
+pack:
+	dotnet pack src/Locker/Locker.csproj --configuration Release --no-build --output artifacts

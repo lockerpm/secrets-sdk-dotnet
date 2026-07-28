@@ -1,26 +1,21 @@
-﻿namespace Locker
+using Newtonsoft.Json;
+
+namespace Locker;
+
+public class SecretCreateOptions : BaseOptions
 {
-    using Newtonsoft.Json;
+    [JsonProperty("key")]
+    public string Key { get; set; } = string.Empty;
 
-    public class SecretCreateOptions : BaseOptions
-    {
-        [JsonProperty("key")] public string Key { get; set; }
+    [JsonProperty("value")]
+    public string Value { get; set; } = string.Empty;
 
-        [JsonProperty("value")] public string Value { get; set; }
+    [JsonProperty("description")]
+    public string? Description { get; set; }
 
-        [JsonProperty("description")] public string Description { get; set; }
+    [JsonProperty("environment")]
+    public string? EnvironmentName { get; set; }
 
-        [JsonProperty("environment_name")] public string EnvironmentName { get; set; } = null;
-
-        public override string BuildOptions()
-        {
-            string cli = $" --key {Key} --value {Value} --description {Description}";
-            if (EnvironmentName != null)
-            {
-                cli += $" --environment {EnvironmentName}";
-            }
-
-            return cli;
-        }
-    }
+    [Obsolete("Human CLI argument construction is not supported by protocol v1.")]
+    public override string BuildOptions() => string.Empty;
 }

@@ -1,15 +1,15 @@
-﻿namespace Locker
+namespace Locker
 {
     /// <summary>Represents a non-generic expandable field.</summary>
     public interface IExpandableField
     {
         /// <summary>Gets or sets the ID.</summary>
         /// <value>The ID.</value>
-        string Id { get; set; }
+        string? Id { get; set; }
 
         /// <summary>Gets or sets the expanded object.</summary>
         /// <value>The expanded object.</value>
-        object ExpandedObject { get; set; }
+        object? ExpandedObject { get; set; }
 
         /// <summary>
         /// Gets a value indicating whether the <see cref="IExpandableField"/> is expanded.
@@ -23,6 +23,6 @@
     public interface IExpandableField<T> : IExpandableField
         where T : IHasId
     {
-        new T ExpandedObject { get; set; }
+        new T? ExpandedObject { get; set; }
     }
 }

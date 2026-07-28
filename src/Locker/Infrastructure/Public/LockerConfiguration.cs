@@ -1,305 +1,148 @@
-﻿namespace Locker
+using Locker.Infrastructure;
+using Newtonsoft.Json;
+
+namespace Locker;
+
+public sealed class LockerConfiguration
 {
-    using System.Collections.Generic;
-    using Infrastructure;
-    using Newtonsoft.Json;
-    using DotNetEnv;
-    using System.IO;
-    using System.Security.AccessControl;
-    using System.Diagnostics;
-    using System.Runtime.InteropServices;
+    private static readonly Lazy<LockerConfiguration> LazyInstance =
+        new(() => new LockerConfiguration(), LazyThreadSafetyMode.ExecutionAndPublication);
 
+    private readonly object sync = new();
+    private Dictionary<string, string> headers = new(StringComparer.Ordinal);
+    private string? apiBase;
+    private string? accessKeyId;
+    private string? secretAccessKey;
+    private string? apiVersion;
 
-    /// <summary>
-    /// Global configuration class for Locker.net settings.
-    /// </summary>
-    public class LockerConfiguration
+    private LockerConfiguration()
     {
-        private string _apiBase;
-        private string _accessKeyId;
-        private string _secretAccessKey;
-        private string _apiVersion;
-        private string _sdkVersion;
-        private string _lockerDir;
-        private string _binaryFilePath;
-        private string _binaryVersion;
-        private Dictionary<string, string> _headers = new Dictionary<string, string>();
+    }
 
-        private static LockerConfiguration instance;
-        private static readonly object lockObject = new object();
+    public static LockerConfiguration Instance => LazyInstance.Value;
 
-        private LockerConfiguration()
+    public void Init(
+        string? apiBase = null,
+        string? accessKeyId = null,
+        string? secretAccessKey = null,
+        string? apiVersion = null,
+        Dictionary<string, string>? headers = null,
+        string? envPath = null)
+    {
+        if (envPath is not null)
         {
+            throw new NotSupportedException(
+                "Implicit .env loading was removed. Load configuration in the application and use canonical LOCKER_* variables.");
         }
 
-        public static LockerConfiguration Instance
+        lock (sync)
         {
-            get
-            {
-                if (instance == null)
-                {
-                    lock (lockObject)
-                    {
-                        if (instance == null)
-                        {
-                            instance = new LockerConfiguration();
-                        }
-                    }
-                }
+            this.apiBase = apiBase;
+            this.accessKeyId = accessKeyId;
+            this.secretAccessKey = secretAccessKey;
+            this.apiVersion = apiVersion;
+            this.headers = headers is null
+                ? new Dictionary<string, string>(StringComparer.Ordinal)
+                : new Dictionary<string, string>(headers, StringComparer.Ordinal);
+        }
+    }
 
-                return instance;
+    public string? ApiBase
+    {
+        get { lock (sync) { return apiBase; } }
+        set { lock (sync) { apiBase = value; } }
+    }
+
+    public string? AccessKeyId
+    {
+        get
+        {
+            lock (sync)
+            {
+                return accessKeyId
+                    ?? System.Environment.GetEnvironmentVariable(
+                        LockerClientFactory.AccessKeyIdEnvironmentVariable)
+                    ?? System.Environment.GetEnvironmentVariable("ACCESS_KEY_ID");
             }
         }
+        set { lock (sync) { accessKeyId = value; } }
+    }
 
-        private void InitBinaryPath()
+    public string? SecretAccessKey
+    {
+        get
         {
-            string homeDir = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile);
-            _lockerDir = Path.Combine(homeDir, ".locker");
-            _binaryVersion = "1.0.100";
-            _binaryFilePath = Path.Combine(_lockerDir, $"locker_binary-{this._binaryVersion}");
-        }
-
-        private void DownloadBinaryFile()
-        {
-            string binaryUrl;
-            var currentPlatform = System.Environment.OSVersion.Platform;
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            lock (sync)
             {
-                if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
-                {
-                    binaryUrl = $"https://s.locker.io/download/locker-cli-mac-arm64-{_binaryVersion}";
-                }
-                else
-                {
-                    binaryUrl = $"https://s.locker.io/download/locker-cli-mac-x64-{_binaryVersion}";
-                }
-            }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                binaryUrl = $"https://s.locker.io/download/locker-cli-win-x64-{_binaryVersion}.exe";
-
-                _binaryFilePath = Path.Combine(_lockerDir, $"locker_binary-{_binaryVersion}.exe");
-            }
-            else
-            {
-                if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
-                {
-                    binaryUrl = $"https://s.locker.io/download/locker-cli-linux-arm64-{_binaryVersion}";
-                }
-                else
-                {
-                    binaryUrl = $"https://s.locker.io/download/locker-cli-linux-x64-{_binaryVersion}";
-                }
-                
-            }
-
-            // Check if the .locker directory exists, and create it if not
-            if (!Directory.Exists(_lockerDir))
-            {
-                Directory.CreateDirectory(_lockerDir);
-            }
-
-            // Download binary file
-            if (!File.Exists(_binaryFilePath))
-            {
-                using (var client = new System.Net.WebClient())
-                {
-                    Console.WriteLine($"saving to {Path.GetFullPath(_binaryFilePath)}");
-                    client.DownloadFile(binaryUrl, _binaryFilePath);
-                }
-                try
-                {
-                    switch (currentPlatform)
-                    {
-                        case PlatformID.Win32S:
-                        case PlatformID.Win32Windows:
-                        case PlatformID.Win32NT:
-                        case PlatformID.WinCE:
-                        {
-                            var fileInfo = new FileInfo(_binaryFilePath);
-                            var security = new FileSecurity(
-                                fileInfo.FullName,
-                                AccessControlSections.Owner |
-                                AccessControlSections.Group |
-                                AccessControlSections.Access);
-                            security.SetAccessRule(
-                                new FileSystemAccessRule(
-                                    "Everyone", FileSystemRights.ExecuteFile,
-                                    AccessControlType.Allow
-                                )
-                            );
-                            break;
-                        }
-
-                        case PlatformID.MacOSX:
-                        case PlatformID.Unix:
-                        {
-                            using Process process = new Process();
-                            process.StartInfo.FileName = "chmod";
-                            process.StartInfo.Arguments =
-                                $"755 {_binaryFilePath}";
-                            process.Start();
-                            process.WaitForExit();
-                            break;
-                        }
-                    }
-                }
-                catch (UnauthorizedAccessException e)
-                {
-                    Console.WriteLine(e.Message);
-                }
+                return secretAccessKey
+                    ?? System.Environment.GetEnvironmentVariable(
+                        LockerClientFactory.SecretAccessKeyEnvironmentVariable)
+                    ?? System.Environment.GetEnvironmentVariable("SECRET_ACCESS_KEY")
+                    ?? System.Environment.GetEnvironmentVariable("LOCKER_ACCESS_KEY_SECRET")
+                    ?? System.Environment.GetEnvironmentVariable("ACCESS_KEY_SECRET");
             }
         }
+        set { lock (sync) { secretAccessKey = value; } }
+    }
 
+    public string? ApiVersion
+    {
+        get { lock (sync) { return apiVersion; } }
+        set { lock (sync) { apiVersion = value; } }
+    }
 
-        public void Init(string apiBase = null, string accessKeyId = null, string secretAccessKey = null,
-            string apiVersion = null,
-            Dictionary<string, string> headers = null, string envPath = null)
+    public Dictionary<string, string> Headers
+    {
+        get { lock (sync) { return new Dictionary<string, string>(headers, StringComparer.Ordinal); } }
+        set
         {
-            _apiBase = apiBase;
-            _accessKeyId = accessKeyId;
-            _secretAccessKey = secretAccessKey;
-            _apiVersion = apiVersion;
-            _headers = headers;
-
-            var assembly = typeof(LockerConfiguration).Assembly;
-            _sdkVersion = assembly.GetName().Version.ToString();
-
-            if (envPath != null)
+            lock (sync)
             {
-                DotNetEnv.Env.Load(envPath);
+                headers = value is null
+                    ? new Dictionary<string, string>(StringComparer.Ordinal)
+                    : new Dictionary<string, string>(value, StringComparer.Ordinal);
             }
-            else
-            {
-                DotNetEnv.Env.Load(".env");
-            }
-
-            InitBinaryPath();
-            DownloadBinaryFile();
         }
+    }
 
+    public string SdkVersion => LockerSdkMetadata.Version;
 
-        /// <summary>Gets or sets the API base.</summary>
-        /// <remarks>
-        /// You can also set the API base using the <c>API_BASE</c> key in .env
-        /// </remarks>
-        public string ApiBase
+    public string LockerDir => Path.Combine(
+        System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile),
+        ".locker");
+
+    public string? BinaryFilePath => null;
+
+    public static JsonSerializerSettings SerializerSettings { get; set; } = new()
+    {
+        Converters = new List<JsonConverter> { new LockerObjectConverter() },
+        DateParseHandling = DateParseHandling.None,
+        MaxDepth = 128,
+    };
+
+    internal LockerClient CreateClient(RequestOptions? requestOptions = null)
+    {
+        var access = requestOptions?.AccessKeyId ?? AccessKeyId;
+        var secret = requestOptions?.SecretAccessKey ?? SecretAccessKey;
+        if (string.IsNullOrWhiteSpace(access) || string.IsNullOrWhiteSpace(secret))
         {
-            get
-            {
-                if (string.IsNullOrEmpty(_apiBase))
-                {
-                    _apiBase = DotNetEnv.Env.GetString("API_BASE");
-                }
-
-                return _apiBase;
-            }
-            set => _apiBase = value;
+            throw new InvalidOperationException(
+                $"Set {LockerClientFactory.AccessKeyIdEnvironmentVariable} and {LockerClientFactory.SecretAccessKeyEnvironmentVariable}.");
         }
 
-        /// <summary>Gets or sets the Access key id.</summary>
-        /// <remarks>
-        /// You can also set the Access key id using the <c>ACCESS_KEY_ID</c> key in .env file
-        /// </remarks>
-        public string AccessKeyId
-        {
-            get
-            {
-                if (string.IsNullOrEmpty(_accessKeyId))
-                {
-                    _accessKeyId = DotNetEnv.Env.GetString("ACCESS_KEY_ID");
-                }
+        var optionHeaders = requestOptions?.Headers?.ToDictionary(
+            pair => pair.Key,
+            pair => Convert.ToString(
+                pair.Value,
+                System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
+            StringComparer.Ordinal);
 
-                return _accessKeyId;
-            }
-            set => _accessKeyId = value;
-        }
-
-        /// <summary>Gets or sets the Access key secret.</summary>
-        /// <remarks>
-        /// You can also set the Access key secret using the <c>ACCESS_KEY_SECRET</c> key in .env file
-        /// </remarks>
-        public string SecretAccessKey
-        {
-            get
-            {
-                if (string.IsNullOrEmpty(_secretAccessKey))
-                {
-                    _secretAccessKey = DotNetEnv.Env.GetString("SECRET_ACCESS_KEY");
-                }
-
-                return _secretAccessKey;
-            }
-            set => _secretAccessKey = value;
-        }
-
-        /// <summary>Gets or sets the API version.</summary>
-        /// <remarks>
-        /// You can also set the Api version using the <c>API_VERSION</c> key in .env file
-        /// </remarks>
-        public string ApiVersion
-        {
-            get
-            {
-                if (string.IsNullOrEmpty(_apiVersion))
-                {
-                    _apiVersion = DotNetEnv.Env.GetString("API_VERSION");
-                }
-
-                return _apiVersion;
-            }
-            set => _apiVersion = value;
-        }
-
-        public Dictionary<string, string> Headers
-        {
-            get
-            {
-                var cfAccessClientId = DotNetEnv.Env.GetString("CF_ACCESS_CLIENT_ID");
-                var cfAccessClientSecret = DotNetEnv.Env.GetString("CF_ACCESS_CLIENT_SECRET");
-                _headers = _headers == null || _headers.Count == 0
-                    ? new Dictionary<string, string>()
-                    {
-                        { "CF-Access-Client-Id", cfAccessClientId },
-                        { "CF-Access-Client-Secret", cfAccessClientSecret },
-                    }
-                    : _headers;
-                return _headers;
-            }
-
-            set => _headers = value;
-        }
-
-        public string SdkVersion
-        {
-            get => this._sdkVersion;
-            set => _sdkVersion = value;
-        }
-
-        public string LockerDir
-        {
-            get => _lockerDir;
-        }
-
-        public string BinaryFilePath
-        {
-            get => _binaryFilePath;
-        }
-
-
-        public static JsonSerializerSettings SerializerSettings { get; set; } = DefaultSerializerSettings();
-
-        private static JsonSerializerSettings DefaultSerializerSettings()
-        {
-            return new JsonSerializerSettings
-            {
-                Converters = new List<JsonConverter>
-                {
-                    new LockerObjectConverter(),
-                },
-                DateParseHandling = DateParseHandling.None,
-                MaxDepth = 128,
-            };
-        }
+        return new LockerClient(new LockerClientOptions(
+            access,
+            secret,
+            requestOptions?.CliPath,
+            requestOptions?.ApiBase ?? ApiBase,
+            optionHeaders ?? Headers,
+            timeout: TimeSpan.FromSeconds(requestOptions?.Timeout ?? 30)));
     }
 }

@@ -1,44 +1,30 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
 
-    <PropertyGroup>
-        <TargetFrameworks>net5.0;net6.0;net7.0</TargetFrameworks>
-        <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-        <CheckEolTargetFramework>false</CheckEolTargetFramework>
-    </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Locker\Locker.csproj" />
+    <ProjectReference Include="..\LockerAdversarialCandidate\LockerAdversarialCandidate.csproj" AdditionalProperties="Configuration=$(Configuration)" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\LockerTestCli\LockerTestCli.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\tools\Locker.ReleaseVerifier\Locker.ReleaseVerifier.csproj" AdditionalProperties="Configuration=$(Configuration)" />
+  </ItemGroup>
 
-    <ItemGroup>
-        <None Update="xunit.runner.json" CopyToOutputDirectory="PreserveNewest"/>
-        <None Update=".env">
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </None>
-        <None Update="test\test.env">
-          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </None>
-        <None Update=".env">
-          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </None>
-    </ItemGroup>
-    <ItemGroup>
-        <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="All"/>
-        <PackageReference Include="Microsoft.Extensions.Configuration" Version="7.0.0"/>
-        <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="7.0.0"/>
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.7.0"/>
-        <PackageReference Include="xunit" Version="2.5.0"/>
-        <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3"/>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\**\*.*" />
+  </ItemGroup>
 
-    </ItemGroup>
-    <ItemGroup Condition=" '$(TargetFramework)' == 'net461' ">
-        <Reference Include="Microsoft.CSharp"/>
-    </ItemGroup>
-
-    <ItemGroup>
-        <ProjectReference Include="..\Locker\Locker.csproj"/>
-    </ItemGroup>
-
-    <ItemGroup>
-        <EmbeddedResource Include="Resources\**\*.*"/>
-    </ItemGroup>
-
-
+  <Target Name="CopyAdversarialCandidate" AfterTargets="Build">
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)..\LockerAdversarialCandidate\bin\$(Configuration)\$(TargetFramework)\Locker.AdversarialCandidate.dll" DestinationFolder="$(TargetDir)" />
+  </Target>
 </Project>

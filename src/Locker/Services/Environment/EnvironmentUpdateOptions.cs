@@ -1,32 +1,18 @@
-﻿namespace Locker
+using Newtonsoft.Json;
+
+namespace Locker;
+
+public class EnvironmentUpdateOptions : BaseOptions
 {
-    using Newtonsoft.Json;
+    [JsonProperty("name")]
+    public string? Name { get; set; }
 
-    public class EnvironmentUpdateOptions : BaseOptions
-    {
-        [JsonProperty("name")] public string Name { get; set; }
-        [JsonProperty("external_url")] public string ExternalUrl { get; set; }
-        [JsonProperty("description")] public string Description { get; set; }
+    [JsonProperty("external_url")]
+    public string? ExternalUrl { get; set; }
 
-        public override string BuildOptions()
-        {
-            string cli = "";
-            if (Name != null)
-            {
-                cli += $" --new-name {Name}";
-            }
+    [JsonProperty("description")]
+    public string? Description { get; set; }
 
-            if (ExternalUrl != null)
-            {
-                cli += $" --new-url {ExternalUrl}";
-            }
-
-            if (Description != null)
-            {
-                cli += $" --new-description {Description}";
-            }
-
-            return cli;
-        }
-    }
+    [Obsolete("Human CLI argument construction is not supported by protocol v1.")]
+    public override string BuildOptions() => string.Empty;
 }

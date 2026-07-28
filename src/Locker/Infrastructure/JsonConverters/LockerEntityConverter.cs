@@ -1,78 +1,43 @@
-﻿namespace Locker.Infrastructure
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+
+namespace Locker.Infrastructure;
+
+public class LockerEntityConverter : JsonConverter
 {
-    using System;
-    using Newtonsoft.Json;
-    using Newtonsoft.Json.Linq;
+    public override bool CanWrite => false;
 
-    /// <summary>
-    /// This converter is used to deserialize objects inheriting from LockerEntity.
-    /// It sets the RawJObject property so that undocumented and unsupported fields can be accessed or logged.
-    /// </summary>
-    public class LockerEntityConverter : JsonConverter
+    public override bool CanConvert(Type objectType) =>
+        typeof(LockerEntity).IsAssignableFrom(objectType);
+
+    public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer) =>
+        throw new NotSupportedException();
+
+    public override object? ReadJson(
+        JsonReader reader,
+        Type objectType,
+        object? existingValue,
+        JsonSerializer serializer)
     {
-        /// <summary>
-        /// Gets a value indicating whether this <see cref="JsonConverter"/> can write JSON.
-        /// </summary>
-        /// <value>
-        ///     <c>true</c> if this <see cref="JsonConverter"/> can write JSON; otherwise, <c>false</c>.
-        /// </value>
-        public override bool CanWrite => false;
-
-        /// <summary>
-        /// Determines whether this instance can convert the specified object type.
-        /// </summary>
-        /// <param name="objectType">Type of the object.</param>
-        /// <returns>
-        ///     <c>true</c> if this instance can convert the specified object type; otherwise, <c>false</c>.
-        /// </returns>
-        public override bool CanConvert(Type objectType)
+        if (reader.TokenType == JsonToken.Null)
         {
-            return typeof(LockerEntityConverter).IsAssignableFrom(objectType);
+            return null;
         }
 
-        /// <summary>
-        /// Writes the JSON representation of the object.
-        /// </summary>
-        /// <param name="writer">The <see cref="JsonWriter"/> to write to.</param>
-        /// <param name="value">The value.</param>
-        /// <param name="serializer">The calling serializer.</param>
-        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
+        var raw = JObject.Load(reader);
+        var concreteType = LockerTypeRegistry.GetConcreteType(
+            objectType,
+            raw["object"]?.Value<string>());
+        if (concreteType is null)
         {
-            throw new NotSupportedException(
-                $"{nameof(LockerEntityConverter)} should only be used while deserializing.");
+            return null;
         }
 
-        /// <summary>
-        /// Reads the JSON representation of the object.
-        /// </summary>
-        /// <param name="reader">The <see cref="JsonReader"/> to read from.</param>
-        /// <param name="objectType">Type of the object.</param>
-        /// <param name="existingValue">The existing value of object being read.</param>
-        /// <param name="serializer">The calling serializer.</param>
-        /// <returns>The object value.</returns>
-        public override object? ReadJson(JsonReader reader, Type objectType, object? existingValue,
-            JsonSerializer serializer)
-        {
-            if (reader.TokenType == JsonToken.Null)
-            {
-                return null;
-            }
-
-            JToken jToken;
-            if (reader is JTokenReader jTokenReader)
-            {
-                jToken = jTokenReader.CurrentToken;
-            }
-            else
-            {
-                jToken = JToken.Load(reader);
-                reader = jToken.CreateReader();
-            }
-
-            var e = (LockerEntity)Activator.CreateInstance(objectType);
-            serializer.Populate(reader, e);
-            e.SetRawJObject((JObject)jToken);
-            return e;
-        }
+        var entity = Activator.CreateInstance(concreteType) as LockerEntity
+            ?? throw new JsonSerializationException("Unable to create Locker entity.");
+        using var objectReader = raw.CreateReader();
+        serializer.Populate(objectReader, entity);
+        entity.SetRawJObject(raw);
+        return entity;
     }
 }
