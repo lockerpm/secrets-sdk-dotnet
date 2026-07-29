@@ -47,6 +47,7 @@ internal static class Program
         "public-key",
         "root",
         "tag",
+        "version",
     };
 
     private static readonly HashSet<string> RequiredPackageEntries = new(StringComparer.Ordinal)
@@ -67,6 +68,7 @@ internal static class Program
             var options = ParseArguments(args);
             VerifyRelease(
                 Path.GetFullPath(RequireOption(options, "root")),
+                RequireOption(options, "version"),
                 RequireOption(options, "tag"),
                 RequireOption(options, "public-key"),
                 Path.GetFullPath(RequireOption(options, "package"))
@@ -88,6 +90,7 @@ internal static class Program
 
     private static void VerifyRelease(
         string repositoryRoot,
+        string version,
         string tag,
         string independentPublicKey,
         string packagePath
@@ -98,18 +101,54 @@ internal static class Program
             throw new ReleaseVerificationException("repository root is unavailable");
         }
 
-        var version = ReadUtf8Text(
+        var baseVersion = ReadUtf8Text(
             Path.Combine(repositoryRoot, "VERSION"),
             128,
             "VERSION"
         ).Trim();
-        if (!SemVerPattern.IsMatch(version))
+        if (!SemVerPattern.IsMatch(baseVersion))
         {
             throw new ReleaseVerificationException("VERSION is not canonical SemVer");
         }
+        if (!SemVerPattern.IsMatch(version))
+        {
+            throw new ReleaseVerificationException(
+                "derived release version is not canonical SemVer"
+            );
+        }
+        var baseParts = baseVersion
+            .Split('.')
+            .Select(
+                part => int.Parse(
+                    part,
+                    System.Globalization.CultureInfo.InvariantCulture
+                )
+            )
+            .ToArray();
+        var releaseParts = version
+            .Split('.')
+            .Select(
+                part => int.Parse(
+                    part,
+                    System.Globalization.CultureInfo.InvariantCulture
+                )
+            )
+            .ToArray();
+        if (
+            releaseParts[0] != baseParts[0]
+            || releaseParts[1] != baseParts[1]
+            || releaseParts[2] < baseParts[2]
+        )
+        {
+            throw new ReleaseVerificationException(
+                "derived release version is outside the reviewed release line"
+            );
+        }
         if (!string.Equals(tag, $"v{version}", StringComparison.Ordinal))
         {
-            throw new ReleaseVerificationException("release tag does not match VERSION");
+            throw new ReleaseVerificationException(
+                "release tag does not match the derived release version"
+            );
         }
 
         var project = ReadProjectMetadata(
@@ -117,7 +156,7 @@ internal static class Program
         );
         if (
             !string.Equals(project.PackageId, "lockersm", StringComparison.Ordinal)
-            || !string.Equals(project.Version, version, StringComparison.Ordinal)
+            || !string.Equals(project.Version, baseVersion, StringComparison.Ordinal)
             || !string.Equals(project.LicenseFile, "LICENSE", StringComparison.Ordinal)
             || !string.Equals(project.ReadmeFile, "README.md", StringComparison.Ordinal)
         )

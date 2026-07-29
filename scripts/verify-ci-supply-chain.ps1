@@ -76,13 +76,40 @@ if ($pipeline -match "(?i)\b(?:dotnet-install|choco\s+install|winget\s+install|I
 }
 foreach ($required in @(
     "--locked-mode",
+    "auto_cancel:",
+    "win01",
     "NUGET_PACKAGES",
+    "resource_group: lockersm-nuget",
     "verify-ci-supply-chain.ps1",
-    "LOCKER_CLI_RELEASE_PUBLIC_KEY"
+    "LOCKER_CLI_RELEASE_PUBLIC_KEY",
+    "prepare-release.ps1",
+    "wait-release-predecessor.ps1",
+    "publish-nuget.ps1",
+    "create-gitlab-release.ps1 -SelfTest"
 )) {
     if (-not $pipeline.Contains($required)) {
         throw "CI supply-chain contract is missing: $required"
     }
+}
+$resourceGroups = [Text.RegularExpressions.Regex]::Matches(
+    $pipeline,
+    "(?m)^\s{2}resource_group:\s*(\S+)\s*$"
+)
+if (
+    $resourceGroups.Count -ne 1 -or
+    $resourceGroups[0].Groups[1].Value -cne "lockersm-nuget"
+) {
+    throw "only auto-release may use the lockersm-nuget resource group"
+}
+if ($pipeline.Contains("when: manual")) {
+    throw "release ordering must remain fully automatic"
+}
+
+$gitLabReleaseScript = Read-BoundedText -Path (
+    Join-Path $repositoryRoot "scripts/create-gitlab-release.ps1"
+)
+if (-not $gitLabReleaseScript.Contains("-MaximumRedirection 0")) {
+    throw "GitLab release requests must reject redirects"
 }
 
 $projectFiles = Get-ChildItem -LiteralPath (Join-Path $repositoryRoot "src"), (Join-Path $repositoryRoot "tools") `

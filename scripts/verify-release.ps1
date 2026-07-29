@@ -1,5 +1,7 @@
 param(
     [Parameter(Mandatory = $true)]
+    [string] $Version,
+    [Parameter(Mandatory = $true)]
     [string] $Tag,
     [Parameter(Mandatory = $true)]
     [string] $PublicKey,
@@ -25,6 +27,7 @@ foreach ($path in @($PackagePath, $VerifierPath)) {
 $arguments = @(
     $VerifierPath,
     "--root", $repositoryRoot,
+    "--version", $Version,
     "--tag", $Tag,
     "--public-key", $PublicKey,
     "--package", $PackagePath

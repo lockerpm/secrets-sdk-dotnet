@@ -44,6 +44,13 @@ if (method == "system.capabilities")
             Path.Combine(temporaryDirectory, "capabilities.count"),
             "1\n");
     }
+    if (string.Equals(
+        fixtureMode,
+        "locker-test-slow-capabilities",
+        StringComparison.Ordinal))
+    {
+        await Task.Delay(TimeSpan.FromMilliseconds(250));
+    }
     var methods = new JArray(
         "environment.create",
         "environment.get",
@@ -167,6 +174,9 @@ switch (key)
     case "sleep":
         await Task.Delay(TimeSpan.FromSeconds(30));
         return 0;
+    case "short-sleep":
+        await Task.Delay(TimeSpan.FromMilliseconds(250));
+        break;
     case "environment-leak":
         if (System.Environment.GetEnvironmentVariable("LOCKER_ACCESS_KEY_ID") is not null
             || System.Environment.GetEnvironmentVariable("LOCKER_SECRET_ACCESS_KEY") is not null

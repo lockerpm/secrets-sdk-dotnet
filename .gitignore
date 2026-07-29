@@ -2,12 +2,19 @@
 [Bb]in/
 [Oo]bj/
 *.nupkg
+*.snupkg
+artifacts/
+TestResults/
+release-dist/
+release.env
+.nuget/
 
 # user
 *.user
 *.userprefs
 .env
 *.env
+.env.*
 !*.env.example
 !*.env.sample
 .vs

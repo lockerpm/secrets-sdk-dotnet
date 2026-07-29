@@ -42,60 +42,86 @@ public sealed class LockerClient : IDisposable
         JObject parameters,
         CancellationToken cancellationToken)
     {
-        for (var attempt = 0; attempt < 2; attempt++)
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken);
+        budget.CancelAfter(Options.Timeout);
+        try
         {
-            await EnsureCapabilitiesAsync(cancellationToken).ConfigureAwait(false);
-            var state = Volatile.Read(ref negotiatedState)
-                ?? throw new ProtocolError("Locker CLI capabilities are unavailable.");
-            if (!state.SupportedMethods.Contains(method))
+            for (var attempt = 0; attempt < 2; attempt++)
             {
-                throw new ProtocolError("Locker CLI does not advertise the requested SDK operation.");
+                await EnsureCapabilitiesCoreAsync(budget.Token).ConfigureAwait(false);
+                var state = Volatile.Read(ref negotiatedState)
+                    ?? throw new ProtocolError("Locker CLI capabilities are unavailable.");
+                if (!state.SupportedMethods.Contains(method))
+                {
+                    throw new ProtocolError(
+                        "Locker CLI does not advertise the requested SDK operation.");
+                }
+
+                try
+                {
+                    var result = await transport.CallAsync(
+                            method,
+                            parameters,
+                            budget.Token,
+                            state.MaxRequestBytes,
+                            state.MaxResponseBytes,
+                            state.MaxJsonDepth,
+                            state.BinaryIdentity,
+                            state.CliVersion)
+                        .ConfigureAwait(false);
+                    return result.Data;
+                }
+                catch (CliBinaryChangedError error) when (
+                    attempt == 0
+                    && error.SafeToRetry)
+                {
+                    InvalidateCapabilities();
+                }
             }
 
-            try
-            {
-                var result = await transport.CallAsync(
-                        method,
-                        parameters,
-                        cancellationToken,
-                        state.MaxRequestBytes,
-                        state.MaxResponseBytes,
-                        state.MaxJsonDepth,
-                        state.BinaryIdentity,
-                        state.CliVersion)
-                    .ConfigureAwait(false);
-                return result.Data;
-            }
-            catch (CliBinaryChangedError error) when (
-                attempt == 0
-                && error.SafeToRetry)
-            {
-                InvalidateCapabilities();
-            }
+            throw new CliBinaryChangedError(safeToRetry: false);
         }
-
-        throw new CliBinaryChangedError(safeToRetry: false);
+        catch (OperationCanceledException) when (
+            !cancellationToken.IsCancellationRequested
+            && budget.IsCancellationRequested)
+        {
+            throw new LockerTimeoutError();
+        }
     }
 
     public async Task EnsureCapabilitiesAsync(CancellationToken cancellationToken = default)
     {
-        var observedIdentity = await transport
-            .ResolveBinaryIdentityAsync(cancellationToken)
-            .ConfigureAwait(false);
-        var currentState = Volatile.Read(ref negotiatedState);
-        if (currentState?.BinaryIdentity == observedIdentity)
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken);
+        budget.CancelAfter(Options.Timeout);
+        try
         {
+            await EnsureCapabilitiesCoreAsync(budget.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (
+            !cancellationToken.IsCancellationRequested
+            && budget.IsCancellationRequested)
+        {
+            throw new LockerTimeoutError();
+        }
+    }
+
+    private async Task EnsureCapabilitiesCoreAsync(
+        CancellationToken cancellationToken)
+    {
+        var currentState = Volatile.Read(ref negotiatedState);
+        if (currentState is not null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
             return;
         }
 
         await capabilitiesLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            observedIdentity = await transport
-                .ResolveBinaryIdentityAsync(cancellationToken)
-                .ConfigureAwait(false);
             currentState = Volatile.Read(ref negotiatedState);
-            if (currentState?.BinaryIdentity == observedIdentity)
+            if (currentState is not null)
             {
                 return;
             }
@@ -104,10 +130,11 @@ public sealed class LockerClient : IDisposable
             var result = await transport.CallAsync(
                     "system.capabilities",
                     new JObject(),
-                    cancellationToken,
-                    expectedBinaryIdentity: observedIdentity)
+                    cancellationToken)
                 .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             var capabilities = ProtocolDataParser.ParseCapabilities(result.Data);
+            cancellationToken.ThrowIfCancellationRequested();
             ValidateRequiredMethods(capabilities.Methods);
             if (!string.Equals(
                 capabilities.CliVersion,
@@ -148,7 +175,11 @@ public sealed class LockerClient : IDisposable
         Volatile.Write(ref negotiatedState, null);
     }
 
-    public void Dispose() => capabilitiesLock.Dispose();
+    public void Dispose()
+    {
+        capabilitiesLock.Dispose();
+        transport.Dispose();
+    }
 
     private sealed record NegotiatedState(
         FrozenSet<string> SupportedMethods,

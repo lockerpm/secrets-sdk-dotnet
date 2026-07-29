@@ -548,13 +548,55 @@ public sealed class InstallerTests
             fixture,
             () => now);
         var path = await installer.ResolveAsync(CancellationToken.None);
+        var originalLength = new FileInfo(path).Length;
+        var originalWriteTime = File.GetLastWriteTimeUtc(path);
         var bytes = await File.ReadAllBytesAsync(path);
         bytes[^1] ^= 1;
         await File.WriteAllBytesAsync(path, bytes);
+        File.SetLastWriteTimeUtc(path, originalWriteTime);
+        Assert.Equal(originalLength, new FileInfo(path).Length);
+        Assert.Equal(originalWriteTime, File.GetLastWriteTimeUtc(path));
         handler.ResetCounts();
 
         await Assert.ThrowsAsync<InvalidDataException>(
             () => installer.ResolveAsync(CancellationToken.None));
+        Assert.Equal(0, handler.TotalCount);
+    }
+
+    [Fact]
+    public async Task HotExecutionRebindStreamsWithoutRepeatingRawSignature()
+    {
+        using var temporary = new TemporaryDirectory();
+        var fixture = ReleaseFixture.Create("2.0.7");
+        var handler = new ChannelHandler(fixture);
+        var now = DateTimeOffset.FromUnixTimeSeconds(82_000);
+        using var installer = CreateInstaller(
+            handler,
+            temporary.Path,
+            fixture,
+            () => now);
+        var path = await installer.ResolveForExecutionAsync(
+            CancellationToken.None);
+        var signature = await File.ReadAllBytesAsync(path + ".sig");
+        signature[0] ^= 1;
+        await File.WriteAllBytesAsync(path + ".sig", signature);
+        CryptographicOperations.ZeroMemory(signature);
+        handler.ResetCounts();
+
+        Assert.Equal(
+            path,
+            await installer.ResolveForExecutionAsync(
+                CancellationToken.None));
+        Assert.Equal(0, handler.TotalCount);
+
+        using var coldCacheLoader = CreateInstaller(
+            handler,
+            temporary.Path,
+            fixture,
+            () => now);
+        await Assert.ThrowsAsync<InvalidDataException>(
+            () => coldCacheLoader.ResolveForExecutionAsync(
+                CancellationToken.None));
         Assert.Equal(0, handler.TotalCount);
     }
 

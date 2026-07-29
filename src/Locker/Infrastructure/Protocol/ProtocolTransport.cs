@@ -6,7 +6,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Locker;
 
-internal sealed class ProtocolTransport
+internal sealed class ProtocolTransport : IDisposable
 {
     private static readonly UTF8Encoding StrictUtf8 = new(false, true);
     private static readonly string[] ChildEnvironmentAllowlist =
@@ -36,18 +36,43 @@ internal sealed class ProtocolTransport
     };
 
     private readonly LockerClientOptions options;
+    private readonly Lazy<LockerCliInstaller> managedInstaller;
+    private readonly Func<CancellationToken, Task<string>> managedResolver;
 
     internal ProtocolTransport(LockerClientOptions options)
+        : this(options, managedResolver: null)
+    {
+    }
+
+    internal ProtocolTransport(
+        LockerClientOptions options,
+        Func<CancellationToken, Task<string>>? managedResolver)
     {
         this.options = options;
+        managedInstaller = new Lazy<LockerCliInstaller>(
+            () => new LockerCliInstaller(),
+            LazyThreadSafetyMode.ExecutionAndPublication);
+        this.managedResolver = managedResolver
+            ?? (token => managedInstaller.Value.ResolveForExecutionAsync(token));
     }
 
     internal async Task<CliBinaryIdentity> ResolveBinaryIdentityAsync(
         CancellationToken cancellationToken)
     {
-        var path = await LockerCliResolver.ResolveAsync(options, cancellationToken)
+        var path = await LockerCliResolver.ResolveAsync(
+                options,
+                managedResolver,
+                cancellationToken)
             .ConfigureAwait(false);
         return CliBinaryIdentity.Capture(path);
+    }
+
+    public void Dispose()
+    {
+        if (managedInstaller.IsValueCreated)
+        {
+            managedInstaller.Value.Dispose();
+        }
     }
 
     internal async Task<ProtocolCallResult> CallAsync(
@@ -60,6 +85,7 @@ internal sealed class ProtocolTransport
         CliBinaryIdentity? expectedBinaryIdentity = null,
         string? expectedCliVersion = null)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (maxRequestBytes <= 0
             || maxRequestBytes > LockerClientOptions.ProtocolRequestLimitBytes
             || maxResponseBytes <= 0
@@ -70,8 +96,13 @@ internal sealed class ProtocolTransport
             throw new ProtocolError("Locker SDK protocol limits are invalid.");
         }
 
+        // Resolve immediately before every process execution. For a managed
+        // binary this re-runs signed-manifest plus streamed digest/header
+        // checks; its detached signature is bound on install or first cache
+        // load. Explicit caller-owned paths retain identity-only validation.
         var binaryIdentity = await ResolveBinaryIdentityAsync(cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         using var executionLease = AcquireExecutionLease(
             binaryIdentity.CanonicalPath);
         var leasedIdentity = CliBinaryIdentity.Capture(
@@ -87,6 +118,7 @@ internal sealed class ProtocolTransport
         {
             throw new CliBinaryChangedError(safeToRetry: true);
         }
+        cancellationToken.ThrowIfCancellationRequested();
         var requestId = Guid.NewGuid().ToString("N");
         var request = new JObject
         {
@@ -244,10 +276,12 @@ internal sealed class ProtocolTransport
 
         ZeroCompletedOutput(stderrTask);
 
+        cancellationToken.ThrowIfCancellationRequested();
         var decoded = StrictProtocolResponse.Parse(
             stdout,
             requestId,
             maxJsonDepth);
+        cancellationToken.ThrowIfCancellationRequested();
         if (expectedCliVersion is not null
             && !string.Equals(
                 decoded.CliVersion,

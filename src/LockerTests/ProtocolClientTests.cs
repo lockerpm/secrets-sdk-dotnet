@@ -1,4 +1,5 @@
 using Locker;
+using System.Security.Cryptography;
 using Xunit;
 
 namespace LockerTests;
@@ -130,6 +131,110 @@ public sealed class ProtocolClientTests
             }
 
             Directory.Delete(modeDirectory, recursive: false);
+        }
+    }
+
+    [Fact]
+    public async Task ManagedBinaryIsCryptographicallyReverifiedBeforeEveryExecution()
+    {
+        var fixtureDirectory = Path.Combine(
+            Path.GetTempPath(),
+            $"locker-dotnet-managed-exec-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(fixtureDirectory);
+        var originalEnvironmentPath =
+            System.Environment.GetEnvironmentVariable("LOCKER_CLI_PATH");
+        try
+        {
+            System.Environment.SetEnvironmentVariable("LOCKER_CLI_PATH", null);
+            var sourceDirectory = Path.GetDirectoryName(FakeCliPath)
+                ?? throw new InvalidOperationException(
+                    "Test CLI directory is unavailable.");
+            foreach (var source in Directory.EnumerateFiles(
+                sourceDirectory,
+                "*"))
+            {
+                var destination = Path.Combine(
+                    fixtureDirectory,
+                    Path.GetFileName(source));
+                File.Copy(source, destination);
+                if (!OperatingSystem.IsWindows())
+                {
+                    File.SetUnixFileMode(
+                        destination,
+                        File.GetUnixFileMode(source));
+                }
+            }
+
+            var managedPath = Path.Combine(
+                fixtureDirectory,
+                Path.GetFileName(FakeCliPath));
+            var expectedSize = new FileInfo(managedPath).Length;
+            string expectedSha256;
+            await using (var input = File.OpenRead(managedPath))
+            {
+                expectedSha256 = Convert.ToHexString(
+                    await SHA256.HashDataAsync(input)).ToLowerInvariant();
+            }
+            var verificationCount = 0;
+            async Task<string> VerifyManagedAsync(
+                CancellationToken cancellationToken)
+            {
+                Interlocked.Increment(ref verificationCount);
+                if (!await LockerCliIntegrity.VerifyAsync(
+                    managedPath,
+                    expectedSize,
+                    expectedSha256,
+                    cancellationToken))
+                {
+                    throw new CliRunError(
+                        "Managed Locker CLI failed signed cache verification.");
+                }
+
+                return managedPath;
+            }
+
+            var options = new LockerClientOptions(
+                "test-access",
+                "test-secret");
+            using var transport = new ProtocolTransport(
+                options,
+                VerifyManagedAsync);
+            await transport.CallAsync(
+                "system.capabilities",
+                new Newtonsoft.Json.Linq.JObject(),
+                CancellationToken.None);
+
+            var originalWriteTime = File.GetLastWriteTimeUtc(managedPath);
+            await using (var binary = new FileStream(
+                managedPath,
+                FileMode.Open,
+                FileAccess.ReadWrite,
+                FileShare.Read))
+            {
+                binary.Position = binary.Length - 1;
+                var original = binary.ReadByte();
+                Assert.NotEqual(-1, original);
+                binary.Position = binary.Length - 1;
+                binary.WriteByte((byte)(original ^ 0x01));
+                await binary.FlushAsync();
+            }
+            File.SetLastWriteTimeUtc(managedPath, originalWriteTime);
+            Assert.Equal(expectedSize, new FileInfo(managedPath).Length);
+            Assert.Equal(originalWriteTime, File.GetLastWriteTimeUtc(managedPath));
+
+            await Assert.ThrowsAsync<CliRunError>(
+                () => transport.CallAsync(
+                    "system.capabilities",
+                    new Newtonsoft.Json.Linq.JObject(),
+                    CancellationToken.None));
+            Assert.Equal(2, verificationCount);
+        }
+        finally
+        {
+            System.Environment.SetEnvironmentVariable(
+                "LOCKER_CLI_PATH",
+                originalEnvironmentPath);
+            Directory.Delete(fixtureDirectory, recursive: true);
         }
     }
 
@@ -401,6 +506,21 @@ public sealed class ProtocolClientTests
                 maxStderrBytes: 1024));
         await Assert.ThrowsAsync<LockerResponseTooLargeError>(
             () => stderrClient.Secrets.GetAsync("huge-stderr"));
+    }
+
+    [Fact]
+    public async Task TimeoutBudgetIncludesCapabilitiesAndOperation()
+    {
+        await WithFixtureModeAsync(
+            "slow-capabilities",
+            async () =>
+            {
+                using var client = CreateClient(
+                    timeout: TimeSpan.FromMilliseconds(400));
+
+                await Assert.ThrowsAsync<LockerTimeoutError>(
+                    () => client.Secrets.GetAsync("short-sleep"));
+            });
     }
 
     [Fact]

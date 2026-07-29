@@ -20,6 +20,9 @@ public sealed class ConfigurationTests
         var repositoryRoot = FindRepositoryRoot();
         var releaseVersion = File.ReadAllText(
             Path.Combine(repositoryRoot.FullName, "VERSION")).Trim();
+        var expectedRuntimeVersion =
+            System.Environment.GetEnvironmentVariable("LOCKER_SDK_VERSION")
+            ?? releaseVersion;
         var project = XDocument.Load(
             Path.Combine(
                 repositoryRoot.FullName,
@@ -33,8 +36,10 @@ public sealed class ConfigurationTests
             .Trim();
 
         Assert.Equal(releaseVersion, projectVersion);
-        Assert.Equal(releaseVersion, LockerSdkMetadata.Version);
-        Assert.Equal(releaseVersion, LockerConfiguration.Instance.SdkVersion);
+        Assert.Equal(expectedRuntimeVersion, LockerSdkMetadata.Version);
+        Assert.Equal(
+            expectedRuntimeVersion,
+            LockerConfiguration.Instance.SdkVersion);
     }
 
     [Fact]

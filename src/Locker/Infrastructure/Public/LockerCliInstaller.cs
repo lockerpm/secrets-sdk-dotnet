@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Net;
 using System.Net.Security;
 using System.ComponentModel;
@@ -23,6 +24,8 @@ public sealed class LockerCliInstaller : IDisposable
     private const int NetworkRetrySeconds = 60;
     private static readonly TimeSpan DefaultDownloadTimeout =
         TimeSpan.FromMinutes(2);
+    private static readonly HttpClient SharedStrictHttpClient =
+        CreateStrictHttpClient();
 
     private readonly HttpClient client;
     private readonly TimeSpan downloadTimeout;
@@ -30,15 +33,17 @@ public sealed class LockerCliInstaller : IDisposable
     private readonly ReleaseTrust trust;
     private readonly Func<DateTimeOffset> utcNow;
     private readonly bool ownsClient;
+    private readonly object executionTrustSync = new();
+    private CurrentReference? detachedSignatureReference;
 
     /// <summary>Creates an installer using the SDK-embedded release trust root.</summary>
     public LockerCliInstaller()
         : this(
-            CreateStrictHttpClient(),
+            SharedStrictHttpClient,
             LockerCliResolver.GetCanonicalManagedRoot(),
             LoadBundledReleaseTrust(),
             () => DateTimeOffset.UtcNow,
-            ownsClient: true,
+            ownsClient: false,
             downloadTimeout: DefaultDownloadTimeout)
     {
     }
@@ -102,9 +107,17 @@ public sealed class LockerCliInstaller : IDisposable
     internal Task<string> ResolveAsync(CancellationToken cancellationToken) =>
         EnsureManagedAsync(forceNetwork: false, cancellationToken);
 
+    internal Task<string> ResolveForExecutionAsync(
+        CancellationToken cancellationToken) =>
+        EnsureManagedAsync(
+            forceNetwork: false,
+            cancellationToken,
+            reuseDetachedSignature: true);
+
     internal async Task<string> EnsureManagedAsync(
         bool forceNetwork,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool reuseDetachedSignature = false)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var publicKey = SignedUpdateContract.DecodePublicKey(trust.PublicKey);
@@ -128,10 +141,18 @@ public sealed class LockerCliInstaller : IDisposable
             current = await ReadCurrentAsync(cancellationToken).ConfigureAwait(false);
             if (current is not null)
             {
+                var verifyDetachedSignature =
+                    !reuseDetachedSignature
+                    || !HasDetachedSignatureBinding(current);
                 cached = await VerifyReleaseAsync(
                     current,
                     publicKey,
+                    verifyDetachedSignature,
                     cancellationToken).ConfigureAwait(false);
+                if (verifyDetachedSignature)
+                {
+                    RememberDetachedSignatureBinding(current);
+                }
             }
         }
         catch (Exception error) when (
@@ -461,6 +482,7 @@ public sealed class LockerCliInstaller : IDisposable
             var existing = await VerifyReleaseAsync(
                 reference,
                 publicKey,
+                verifyDetachedSignature: true,
                 cancellationToken).ConfigureAwait(false);
             if (!CryptographicOperations.FixedTimeEquals(
                 existing.ManifestBytes,
@@ -470,6 +492,7 @@ public sealed class LockerCliInstaller : IDisposable
                     "Existing immutable Locker CLI release differs from signed metadata.");
             }
 
+            RememberDetachedSignatureBinding(reference);
             return existing;
         }
 
@@ -516,6 +539,7 @@ public sealed class LockerCliInstaller : IDisposable
         var result = await VerifyReleaseAsync(
             reference,
             publicKey,
+            verifyDetachedSignature: true,
             cancellationToken).ConfigureAwait(false);
         if (!CryptographicOperations.FixedTimeEquals(result.ManifestBytes, manifest))
         {
@@ -523,12 +547,14 @@ public sealed class LockerCliInstaller : IDisposable
                 "Published immutable Locker CLI release differs from signed metadata.");
         }
 
+        RememberDetachedSignatureBinding(reference);
         return result;
     }
 
     private async Task<VerifiedInstall> VerifyReleaseAsync(
         CurrentReference reference,
         byte[] publicKey,
+        bool verifyDetachedSignature,
         CancellationToken cancellationToken)
     {
         ValidateCurrentReference(reference);
@@ -567,35 +593,250 @@ public sealed class LockerCliInstaller : IDisposable
                 "Cached Locker CLI artifact target is invalid.");
         }
 
-        var signature = await ReadRegularFileAsync(
-            signaturePath,
-            SignedUpdateContract.SignatureSize,
-            SignedUpdateContract.SignatureSize,
-            requireExecutable: false,
-            cancellationToken).ConfigureAwait(false);
-        var binary = await ReadRegularFileAsync(
+        if (verifyDetachedSignature)
+        {
+            var signature = await ReadRegularFileAsync(
+                signaturePath,
+                SignedUpdateContract.SignatureSize,
+                SignedUpdateContract.SignatureSize,
+                requireExecutable: false,
+                cancellationToken).ConfigureAwait(false);
+            var binary = await ReadRegularFileAsync(
+                binaryPath,
+                SignedUpdateContract.MaxArtifactBytes,
+                artifact.Size,
+                requireExecutable: true,
+                cancellationToken).ConfigureAwait(false);
+            try
+            {
+                if (!SignedUpdateContract.MatchesSha256(binary, artifact.Sha256))
+                {
+                    throw new InvalidDataException(
+                        "Cached Locker CLI artifact digest is invalid.");
+                }
+
+                SignedUpdateContract.VerifyArtifactHeader(binary, artifact);
+                SignedUpdateContract.VerifyDetachedSignature(
+                    binary,
+                    signature,
+                    publicKey);
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(binary);
+            }
+        }
+        else
+        {
+            await VerifyExecutableForExecutionAsync(
+                binaryPath,
+                artifact,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        return new VerifiedInstall(reference, binaryPath, manifestBytes);
+    }
+
+    private static async Task VerifyExecutableForExecutionAsync(
+        string binaryPath,
+        ReleaseArtifact artifact,
+        CancellationToken cancellationToken)
+    {
+        var before = ValidateRegularFile(
             binaryPath,
             SignedUpdateContract.MaxArtifactBytes,
             artifact.Size,
-            requireExecutable: true,
-            cancellationToken).ConfigureAwait(false);
+            requireExecutable: true);
+        await using var input = new FileStream(
+            binaryPath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            81920,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+        using var digest = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        var buffer = ArrayPool<byte>.Shared.Rent(81920);
+        byte[]? actualHash = null;
+        byte[]? expectedHash = null;
         try
         {
-            if (!SignedUpdateContract.MatchesSha256(binary, artifact.Sha256))
+            long total = 0;
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var read = await input.ReadAsync(
+                    buffer.AsMemory(0, buffer.Length),
+                    cancellationToken).ConfigureAwait(false);
+                if (read == 0)
+                {
+                    break;
+                }
+
+                total = checked(total + read);
+                if (total > artifact.Size)
+                {
+                    throw new InvalidDataException(
+                        "Managed Locker CLI exceeds its signed size.");
+                }
+
+                digest.AppendData(buffer, 0, read);
+            }
+
+            actualHash = digest.GetHashAndReset();
+            expectedHash = Convert.FromHexString(artifact.Sha256);
+            if (total != artifact.Size
+                || !CryptographicOperations.FixedTimeEquals(
+                    actualHash,
+                    expectedHash))
             {
                 throw new InvalidDataException(
                     "Cached Locker CLI artifact digest is invalid.");
             }
 
-            SignedUpdateContract.VerifyArtifactHeader(binary, artifact);
-            SignedUpdateContract.VerifyDetachedSignature(binary, signature, publicKey);
+            await VerifyExecutableHeaderAsync(
+                input,
+                artifact,
+                cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            CryptographicOperations.ZeroMemory(binary);
+            Array.Clear(buffer, 0, buffer.Length);
+            ArrayPool<byte>.Shared.Return(buffer);
+            if (actualHash is not null)
+            {
+                CryptographicOperations.ZeroMemory(actualHash);
+            }
+            if (expectedHash is not null)
+            {
+                CryptographicOperations.ZeroMemory(expectedHash);
+            }
         }
 
-        return new VerifiedInstall(reference, binaryPath, manifestBytes);
+        var after = ValidateRegularFile(
+            binaryPath,
+            SignedUpdateContract.MaxArtifactBytes,
+            artifact.Size,
+            requireExecutable: true);
+        if (after != before)
+        {
+            throw new InvalidDataException(
+                "Managed Locker CLI file changed while reading.");
+        }
+    }
+
+    private static async Task VerifyExecutableHeaderAsync(
+        FileStream input,
+        ReleaseArtifact artifact,
+        CancellationToken cancellationToken)
+    {
+        var target = SignedUpdateContract.CurrentTarget();
+        if (target.Filename != artifact.Filename
+            || target.OS != artifact.OS
+            || target.Arch != artifact.Arch)
+        {
+            throw new InvalidDataException(
+                "Locker CLI artifact target is invalid.");
+        }
+
+        var prefixLength = artifact.OS switch
+        {
+            "linux" => 20,
+            "darwin" => 8,
+            "windows" => 64,
+            _ => throw new InvalidDataException(
+                "Locker CLI artifact operating system is invalid."),
+        };
+        var prefix = new byte[prefixLength];
+        input.Position = 0;
+        await input.ReadExactlyAsync(prefix, cancellationToken).ConfigureAwait(false);
+
+        switch (artifact.OS)
+        {
+            case "linux":
+                {
+                    if (prefix[0] != 0x7f
+                        || prefix[1] != (byte)'E'
+                        || prefix[2] != (byte)'L'
+                        || prefix[3] != (byte)'F'
+                        || prefix[4] != 2
+                        || prefix[5] is not (1 or 2))
+                    {
+                        throw new InvalidDataException(
+                            "Locker CLI artifact is not a 64-bit ELF executable.");
+                    }
+
+                    var machine = prefix[5] == 1
+                        ? System.Buffers.Binary.BinaryPrimitives
+                            .ReadUInt16LittleEndian(prefix.AsSpan(18, 2))
+                        : System.Buffers.Binary.BinaryPrimitives
+                            .ReadUInt16BigEndian(prefix.AsSpan(18, 2));
+                    var expected = artifact.Arch == "amd64"
+                        ? (ushort)0x3e
+                        : (ushort)0xb7;
+                    if (machine != expected)
+                    {
+                        throw new InvalidDataException(
+                            "Locker CLI ELF architecture is invalid.");
+                    }
+
+                    break;
+                }
+            case "darwin":
+                {
+                    if (!prefix.AsSpan(0, 4).SequenceEqual(
+                        new byte[] { 0xcf, 0xfa, 0xed, 0xfe }))
+                    {
+                        throw new InvalidDataException(
+                            "Locker CLI artifact is not a 64-bit little-endian Mach-O executable.");
+                    }
+
+                    var cpu = System.Buffers.Binary.BinaryPrimitives
+                        .ReadUInt32LittleEndian(prefix.AsSpan(4, 4));
+                    var expected = artifact.Arch == "amd64"
+                        ? 0x01000007u
+                        : 0x0100000cu;
+                    if (cpu != expected)
+                    {
+                        throw new InvalidDataException(
+                            "Locker CLI Mach-O architecture is invalid.");
+                    }
+
+                    break;
+                }
+            case "windows":
+                {
+                    if (prefix[0] != (byte)'M' || prefix[1] != (byte)'Z')
+                    {
+                        throw new InvalidDataException(
+                            "Locker CLI artifact is not a PE executable.");
+                    }
+
+                    var headerOffset = System.Buffers.Binary.BinaryPrimitives
+                        .ReadUInt32LittleEndian(prefix.AsSpan(60, 4));
+                    if (headerOffset < 64 || headerOffset > artifact.Size - 6)
+                    {
+                        throw new InvalidDataException(
+                            "Locker CLI PE architecture is invalid.");
+                    }
+
+                    input.Position = headerOffset;
+                    var peHeader = new byte[6];
+                    await input.ReadExactlyAsync(
+                        peHeader,
+                        cancellationToken).ConfigureAwait(false);
+                    if (!peHeader.AsSpan(0, 4).SequenceEqual(
+                            new byte[] { (byte)'P', (byte)'E', 0, 0 })
+                        || System.Buffers.Binary.BinaryPrimitives
+                            .ReadUInt16LittleEndian(peHeader.AsSpan(4, 2))
+                            != 0x8664)
+                    {
+                        throw new InvalidDataException(
+                            "Locker CLI PE architecture is invalid.");
+                    }
+
+                    break;
+                }
+        }
     }
 
     private async Task<byte[]> DownloadBytesAsync(
@@ -1067,14 +1308,54 @@ public sealed class LockerCliInstaller : IDisposable
         bool requireExecutable,
         CancellationToken cancellationToken)
     {
-        var before = new FileInfo(path);
-        before.Refresh();
-        if (!before.Exists
-            || before.LinkTarget is not null
-            || (before.Attributes & FileAttributes.ReparsePoint) != 0
-            || before.Length is < 1
-            || before.Length > maximumBytes
-            || expectedSize is not null && before.Length != expectedSize)
+        var before = ValidateRegularFile(
+            path,
+            maximumBytes,
+            expectedSize,
+            requireExecutable);
+        var bytes = new byte[checked((int)before.Length)];
+        await using var input = new FileStream(
+            path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            81920,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+        await input.ReadExactlyAsync(bytes, cancellationToken).ConfigureAwait(false);
+        if (input.ReadByte() != -1)
+        {
+            throw new InvalidDataException(
+                "Managed Locker CLI file changed while reading.");
+        }
+
+        var after = ValidateRegularFile(
+            path,
+            maximumBytes,
+            expectedSize,
+            requireExecutable);
+        if (after != before)
+        {
+            throw new InvalidDataException(
+                "Managed Locker CLI file changed while reading.");
+        }
+
+        return bytes;
+    }
+
+    private static RegularFileSnapshot ValidateRegularFile(
+        string path,
+        int maximumBytes,
+        long? expectedSize,
+        bool requireExecutable)
+    {
+        var file = new FileInfo(path);
+        file.Refresh();
+        if (!file.Exists
+            || file.LinkTarget is not null
+            || (file.Attributes & FileAttributes.ReparsePoint) != 0
+            || file.Length is < 1
+            || file.Length > maximumBytes
+            || expectedSize is not null && file.Length != expectedSize)
         {
             throw new InvalidDataException(
                 "Managed Locker CLI file is absent or unsafe.");
@@ -1104,35 +1385,10 @@ public sealed class LockerCliInstaller : IDisposable
             VerifyPrivateWindowsFile(path);
         }
 
-        var bytes = new byte[checked((int)before.Length)];
-        await using var input = new FileStream(
-            path,
-            FileMode.Open,
-            FileAccess.Read,
-            FileShare.Read,
-            81920,
-            FileOptions.Asynchronous | FileOptions.SequentialScan);
-        await input.ReadExactlyAsync(bytes, cancellationToken).ConfigureAwait(false);
-        if (input.ReadByte() != -1)
-        {
-            throw new InvalidDataException(
-                "Managed Locker CLI file changed while reading.");
-        }
-
-        var after = new FileInfo(path);
-        after.Refresh();
-        if (!after.Exists
-            || after.LinkTarget is not null
-            || (after.Attributes & FileAttributes.ReparsePoint) != 0
-            || after.Length != before.Length
-            || after.CreationTimeUtc != before.CreationTimeUtc
-            || after.LastWriteTimeUtc != before.LastWriteTimeUtc)
-        {
-            throw new InvalidDataException(
-                "Managed Locker CLI file changed while reading.");
-        }
-
-        return bytes;
+        return new RegularFileSnapshot(
+            file.Length,
+            file.CreationTimeUtc,
+            file.LastWriteTimeUtc);
     }
 
     private async Task<FileStream> AcquireLockAsync(CancellationToken cancellationToken)
@@ -1769,7 +2025,7 @@ public sealed class LockerCliInstaller : IDisposable
             AllowAutoRedirect = false,
             AutomaticDecompression = DecompressionMethods.None,
             ConnectTimeout = TimeSpan.FromSeconds(10),
-            MaxConnectionsPerServer = 4,
+            MaxConnectionsPerServer = 16,
             PooledConnectionLifetime = TimeSpan.FromMinutes(5),
             ResponseDrainTimeout = TimeSpan.FromSeconds(2),
             SslOptions = new SslClientAuthenticationOptions
@@ -1950,6 +2206,27 @@ public sealed class LockerCliInstaller : IDisposable
     private string CurrentPath() => Path.Combine(managedRoot, "current.json");
 
     private string StatePath() => Path.Combine(managedRoot, "update-state.json");
+
+    private bool HasDetachedSignatureBinding(CurrentReference reference)
+    {
+        lock (executionTrustSync)
+        {
+            return detachedSignatureReference == reference;
+        }
+    }
+
+    private void RememberDetachedSignatureBinding(CurrentReference reference)
+    {
+        lock (executionTrustSync)
+        {
+            detachedSignatureReference = reference;
+        }
+    }
+
+    private sealed record RegularFileSnapshot(
+        long Length,
+        DateTime CreationTimeUtc,
+        DateTime LastWriteTimeUtc);
 
     private sealed record CurrentReference(
         string Version,
