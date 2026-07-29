@@ -1,61 +1,37 @@
-﻿namespace Locker
+using Newtonsoft.Json;
+
+namespace Locker;
+
+public class Environment : LockerEntity<Environment>, IHasId, IHasObject
 {
-    using Newtonsoft.Json;
+    [JsonProperty("object", Required = Required.Always)]
+    public string Object { get; set; } = "environment";
 
-    public class Environment : LockerEntity<Environment>, IHasId, IHasObject
-    {
-        /// <summary>
-        /// Unique identifier for the object.
-        /// </summary>
-        [JsonProperty("id")]
-        public string Id { get; set; }
+    [JsonProperty("id", Required = Required.Always)]
+    public string Id { get; set; } = string.Empty;
 
-        /// <summary>
-        /// String representing the object's type. Objects of the same type share the same value.
-        /// </summary>
-        [JsonProperty("object")]
-        public string Object { get; set; }
+    [JsonProperty("name", Required = Required.Always)]
+    public string Name { get; set; } = string.Empty;
 
-        /// <summary>
-        /// Number representing the object's creation date.
-        /// </summary>
-        [JsonProperty("creation_date")]
-        public float CreationDate { get; set; }
+    [JsonProperty("external_url", Required = Required.Always)]
+    public string ExternalUrl { get; set; } = string.Empty;
 
-        /// <summary>
-        /// Number representing the object's revision date.
-        /// </summary>
-        [JsonProperty("revision_date")]
-        public float RevisionDate { get; set; }
+    [JsonProperty("description", Required = Required.Always)]
+    public string Description { get; set; } = string.Empty;
 
-        /// <summary>
-        /// Number representing the object's update date.
-        /// </summary>
-        [JsonProperty("updated_date")]
-        public float UpdatedDate { get; set; }
+    [JsonProperty("creation_date", Required = Required.Always)]
+    public double CreationDate { get; set; }
 
-        /// <summary>
-        /// String representing the object's name.
-        /// </summary>
-        [JsonProperty("name")]
-        public string Name { get; set; }
+    [JsonProperty("revision_date", Required = Required.Always)]
+    public double RevisionDate { get; set; }
 
-        /// <summary>
-        /// String representing the object's external url.
-        /// </summary>
-        [JsonProperty("external_url")]
-        public string ExternalUrl { get; set; }
+    [JsonProperty("updated_date", Required = Required.AllowNull)]
+    public double? UpdatedDate { get; set; }
 
-        /// <summary>
-        /// String representing the object's description.
-        /// </summary>
-        [JsonProperty("description")]
-        public string Description { get; set; }
+    [JsonProperty("project_id", Required = Required.Always)]
+    public long ProjectId { get; set; }
 
-        /// <summary>
-        /// String representing the object's hash.
-        /// </summary>
-        [JsonProperty("hash")]
-        public string Hash { get; set; }
-    }
+    [JsonIgnore]
+    [Obsolete("Protocol v1 deliberately excludes internal hashes.")]
+    public string? Hash { get; set; }
 }

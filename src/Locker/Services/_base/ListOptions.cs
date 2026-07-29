@@ -1,4 +1,4 @@
-﻿namespace Locker
+namespace Locker
 {
     public class ListOptions : BaseOptions
     {

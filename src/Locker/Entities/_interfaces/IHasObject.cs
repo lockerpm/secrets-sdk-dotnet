@@ -1,4 +1,4 @@
-﻿namespace Locker
+namespace Locker
 {
     /// <summary>
     /// Interface that identifies entities returned by Locker that have an `object` attribute.

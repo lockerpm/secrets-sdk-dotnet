@@ -1,43 +1,32 @@
-﻿namespace Locker
+namespace Locker;
+
+public class ExpandableField<T> : IExpandableField<T>
+    where T : IHasId
 {
-    using System;
+    private string? id;
 
-    /// <summary>Represents a generic expandable field.</summary>
-    /// <typeparam name="T">Type of the field when expanded.</typeparam>
-    public class ExpandableField<T> : IExpandableField<T>
-        where T : IHasId
+    public string? Id
     {
-        private string id;
-
-        /// <summary>Gets or sets the ID.</summary>
-        /// <value>The ID.</value>
-        /// <exception cref="InvalidOperationException">
-        /// Trying to set <see cref="Id"/> when <see cref="ExpandedObject"/> is already set.
-        /// </exception>
-        public string Id
+        get => ExpandedObject?.Id ?? id;
+        set
         {
-            get => this.ExpandedObject?.Id ?? this.id;
-            set
+            if (ExpandedObject is not null)
             {
-                if (this.ExpandedObject != null)
-                {
-                    throw new InvalidOperationException("Cannot set Id when ExpandedObject is already set.");
-                }
-
-                this.id = value;
+                throw new InvalidOperationException(
+                    "Cannot set Id when ExpandedObject is already set.");
             }
+
+            id = value;
         }
-
-        /// <summary>Gets or sets the expanded object.</summary>
-        /// <value>The expanded object.</value>
-        public T ExpandedObject { get; set; }
-
-        object IExpandableField.ExpandedObject
-        {
-            get => ExpandedObject;
-            set => ExpandedObject = (T)value;
-        }
-
-        public bool IsExpanded => this.ExpandedObject != null;
     }
+
+    public T? ExpandedObject { get; set; }
+
+    object? IExpandableField.ExpandedObject
+    {
+        get => ExpandedObject;
+        set => ExpandedObject = (T?)value;
+    }
+
+    public bool IsExpanded => ExpandedObject is not null;
 }

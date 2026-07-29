@@ -7,7 +7,7 @@ namespace Locker
         where TEntity : ILockerEntity, IHasId
         where TOptions : BaseOptions, new()
     {
-        object Get(string name, TOptions retrieveOptions = null,
-            RequestOptions requestOptions = null);
+        object Get(string name, TOptions? retrieveOptions = null,
+            RequestOptions? requestOptions = null);
     }
 }

@@ -1,4 +1,4 @@
-﻿namespace Locker
+namespace Locker
 {
     using System.Collections;
     using Locker.Infrastructure;
@@ -10,7 +10,7 @@
         /// A list containing the actual response elements.
         /// </summary>
         [JsonProperty("data", ItemConverterType = typeof(LockerObjectConverter))]
-        public List<T> Data { get; set; }
+        public List<T> Data { get; set; } = new();
 
         public IEnumerator<T> GetEnumerator()
         {

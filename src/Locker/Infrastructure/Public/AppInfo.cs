@@ -1,9 +1,9 @@
-﻿namespace Locker
+namespace Locker
 {
     using Newtonsoft.Json;
 
     public class AppInfo
     {
-        [JsonProperty("name")] public string Name { get; set; }
+        [JsonProperty("name")] public string Name { get; set; } = string.Empty;
     }
 }

@@ -1,381 +1,415 @@
-# Locker Secret .NET SDK
+# Locker Secrets .NET SDK
 
-<p align="center">
-  <img src="https://cystack.net/images/logo-black.svg" alt="CyStack" width="50%"/>
-</p>
-
-
----
-
-The Locker Secret .Net SDK provides convenient access to the Locker Secret API from applications written in the
-C# language. It includes a pre-defined set of classes for API resources that initialize themselves dynamically
-from API responses which makes it compatible with a wide range of versions of the Locker Secret API.
-
-## The Developer - CyStack
-
-The Locker Secret .NET SDK is developed by CyStack, one of the leading cybersecurity companies in Vietnam.
-CyStack is a member of Vietnam Information Security Association (VNISA) and Vietnam Association of CyberSecurity
-Product Development. CyStack is a partner providing security solutions and services for many large domestic and
-international enterprises.
-
-CyStack’s research has been featured at the world’s top security events such as BlackHat USA (USA),
-BlackHat Asia (Singapore), T2Fi (Finland), XCon - XFocus (China)... CyStack experts have been honored by global
-corporations such as Microsoft, Dell, Deloitte, D-link...
-
-## Documentation
-
-The documentation will be updated later.
-
-## Requirements
-
-- .NET >  3.+
+The official .NET client for Locker Passwords & Secrets. Version 1 uses the stable
+`locker.sdk` JSON-RPC protocol over `locker sdk`; it does not parse
+human-facing CLI output and supports Locker Cloud and self-hosted deployments.
 
 ## Installation
 
-Using the [.NET Core command-line interface (CLI) tools][dotnet-core-cli-tools]:
-
-```sh
-dotnet add package lockerpm
-```
-
-Using the [NuGet Command Line Interface (CLI)][nuget-cli]:
-
-```sh
-nuget install lockerpm
-```
-
-Using the [Package Manager Console][package-manager-console]:
-
-```powershell
-Install-Package lockerpm
-```
-
-From within Visual Studio:
-
-1. Open the Solution Explorer.
-2. Right-click on a project within your solution.
-3. Click on *Manage NuGet Packages...*
-4. Click on the *Browse* tab and search for "Locker.net".
-5. Click on the Locker package, select the appropriate version in the
-   right-tab and click *Install*.
-
-## Usages
-
-### Configuration access key
-
-The SDK needs to be configured with your access key id and your secret access key, which is available in your Locker
-Secret Dashboard. These keys must not be disclosed.These keys must not be disclosed. If you reveal these keys, you need
-to revoke them immediately. Environment variables are a good solution and they are easy to consume in most programming
-languages.
-
-#### Set up credentials on Linux/MacOS
-
 ```shell
-export ACCESS_KEY_ID=<YOUR_ACCESS_KEY_ID>
-export SECRET_ACCESS_KEY=<YOUR_SECRET_ACCESS_KEY>
+dotnet add package lockersm
 ```
 
-#### Set up credentials on Windows
+The package does not download or execute a binary during restore, assembly
+load, or client construction. Managed mode resolves the latest compatible,
+signed Locker CLI on first use.
 
-Powershell
+## Requirements
 
-```shell
-$Env:ACCESS_KEY_ID = '<YOUR_ACCESS_KEY_ID>'
-$Env:SECRET_ACCESS_KEY = '<SECRET_ACCESS_KEY>'
-```
+- .NET 8
+- A Locker CLI that advertises protocol v1
+- `LOCKER_ACCESS_KEY_ID` and `LOCKER_SECRET_ACCESS_KEY`
 
-Command Prompt
+Legacy `ACCESS_KEY_ID`, `SECRET_ACCESS_KEY`, `LOCKER_ACCESS_KEY_SECRET`, and
+`ACCESS_KEY_SECRET` variables are accepted only to ease migration. New
+deployments should use only the canonical `LOCKER_*` names.
 
-```shell
-set ACCESS_KEY_ID=<YOUR_ACCESS_KEY_ID>
-set SECRET_ACCESS_KEY=<YOUR_SECRET_ACCESS_KEY>
-```
+| Environment variable | Purpose |
+| --- | --- |
+| `LOCKER_ACCESS_KEY_ID` | Project access key ID |
+| `LOCKER_SECRET_ACCESS_KEY` | Project secret access key |
+| `LOCKER_CLI_PATH` | Absolute caller-owned CLI path |
 
-You also need to set `api_base` value (default is `https://api.locker.io/locker_secrets`).
-If you need to set your custom headers, you also need to set `headers` value in the `options` param:
+Pass a cloud or self-hosted API base explicitly to
+`LockerClientOptions`/`LockerClientFactory.FromEnvironment`; .NET does not
+implicitly read an API-base environment variable.
+
+## Basic use
 
 ```csharp
 using Locker;
 
-string apiBase = "YOUR_API_BASE";
-Dictionary<string, string> headers = new Dictionary<string, string>()
+using var locker = LockerClientFactory.FromEnvironment();
+
+// Recommended single expression for generated scanner fixes. It fails closed
+// for missing secrets and every authentication, permission, transport,
+// protocol, storage, network, or server error.
+var databasePassword =
+    LockerClientFactory.GetRequiredFromEnvironment("DATABASE_PASSWORD");
+
+var productionSecrets = await locker.Secrets.ListAsync("production");
+```
+
+`GetOrDefault` returns a default only when Locker reports numeric JSON-RPC code
+`-32004`. All other errors throw a typed `LockerError`.
+
+```csharp
+var optional = locker.Secrets.GetOrDefault("OPTIONAL_KEY", "safe-non-secret-default");
+```
+
+Applications that do not use environment configuration can construct an
+immutable client explicitly:
+
+```csharp
+var locker = new LockerClient(new LockerClientOptions(
+    accessKeyId: configuration.AccessKeyId,
+    secretAccessKey: configuration.SecretAccessKey,
+    cliPath: configuration.LockerCliPath,
+    apiBase: "https://api.locker.io/locker_secrets",
+    timeout: TimeSpan.FromSeconds(20),
+    forceRefresh: false,
+    maxAgeSeconds: 120));
+```
+
+No constructor or import reads `.env`, downloads a binary, changes
+permissions, or performs capability negotiation. The first vault operation
+runs `system.capabilities` once per client and verifies protocol v1, the eight
+base vault methods plus `system.capabilities`, and the advertised request and
+response bounds. Paginated list methods are additive capabilities: an older
+compatible CLI can still run base operations, while a page call fails locally
+when its method was not advertised.
+
+## Operations
+
+The typed services expose synchronous scanner helpers and asynchronous vault
+operations:
+
+- `Secrets.GetAsync`, `ListAsync`, `CreateAsync`, `UpdateAsync`
+- `Environments.GetAsync`, `ListAsync`, `CreateAsync`, `UpdateAsync`
+- `Secrets.ListPageAsync` and `Environments.ListPageAsync`
+- `Secrets.GetRequired` / `GetRequiredAsync`
+- `Secrets.GetOrDefault` for not-found-only fallback
+
+```csharp
+var created = await locker.Secrets.CreateAsync(new SecretCreateOptions
 {
-    { "CF-Access-Client-Id", "YOUR_CF_ACCESS_CLIENT_ID" },
-    { "CF-Access-Client-Secret", "YOUR_CF_ACCESS_CLIENT_SECRET" }
-};
-LockerConfiguration.Instance.Init(
-    apiBase: apiBase,
-    headers: headers
-);
+    Key = "PAYMENT_API_KEY",
+    Value = secretFromSecureInput,
+    EnvironmentName = "staging",
+});
 
-
+var environment = await locker.Environments.CreateAsync(
+    new EnvironmentCreateOptions
+    {
+        Name = "staging",
+        ExternalUrl = "https://staging.example.com",
+    });
 ```
 
-You can also pass parameters in the Init() method or use the shared credential file (~/.locker/credentials), but we do
-not recommend these ways.
+Secret DTOs contain plaintext values by design. Pass them directly to the
+component that needs them; never print, serialize, or log them. Secret and
+environment deletion are not part of protocol v1.
+
+Use the page APIs for large vaults. A cursor is opaque and must be returned
+unchanged on the next request:
 
 ```csharp
-using Locker;
+var page = await locker.Secrets.ListPageAsync(
+    new SecretListPageOptions
+    {
+        EnvironmentName = "production",
+        PageSize = 100,
+    });
 
-string accessKeyId = "YOUR_ACCESS_KEY_ID";
-string secretAccessKey = "YOUR_SECRET_ACCESS_KEY";
-string apiBase = "YOUR_API_BASE";
-Dictionary<string, string> headers = new Dictionary<string, string>()
+while (page.NextCursor is not null)
 {
-    { "CF-Access-Client-Id", "YOUR_CF_ACCESS_CLIENT_ID" },
-    { "CF-Access-Client-Secret", "YOUR_CF_ACCESS_CLIENT_SECRET" }
-};
-LockerConfiguration.Instance.Init(
-    accessKeyId: accessKeyId,
-    secretAccessKey: secretAccessKey,
-    apiBase: apiBase,
-    headers: headers
-);
-
-// setting by .env file
-LockerConfiguration.Instance.Init(
-    envPath: "YOUR_ENV_FILE_PATH"
-);
+    page = await locker.Secrets.ListPageAsync(
+        new SecretListPageOptions
+        {
+            EnvironmentName = "production",
+            PageSize = 100,
+            Cursor = page.NextCursor,
+        });
+}
 ```
 
-### Per-request configuration
+The typed `SecretPage` and `EnvironmentPage` DTOs expose read-only item
+collections and a nullable `NextCursor`.
 
-All of the service methods accept an optional `RequestOptions` object. This is
-used if you want to pass the access key, headers on each method, or you want set type of return value (default type is
-string, if you want type of object use `IsJson=true`)
+If a legacy unpaginated list cannot fit the negotiated response bound, it
+throws `APIError` with code `-32000`, kind `response_too_large`, and
+`Retryable == false`; use `ListPageAsync` instead of retrying the same list.
 
-```c#
-var requestOptions = new RequestOptions();
-requestOptions.AccessKeyId = "ACCESS KEY ID";
-requestOptions.SecretAccessKey = "SECRET ACCESS KEY";
-requestOptions.ApiBase = "API BASE";
-requestOptions.IsJson = true;
-```
-
-Now, you can use SDK to get or set values:
-
-### List secrets
+To clear a secret's environment association:
 
 ```csharp
-var service = new SecretService();
-var secrets = service.List();
+await locker.Secrets.UpdateAsync(
+    "DATABASE_PASSWORD",
+    new SecretUpdateOptions { ClearEnvironment = true },
+    environmentName: "production");
 ```
 
-### Get a secret value by secret key
+## CLI resolution and installation
+
+Resolution order is:
+
+1. `LockerClientOptions.CliPath`
+2. `LOCKER_CLI_PATH`
+3. the latest fully verified managed release below
+   `~/.locker/sdk-cli/dotnet/releases/2.x.y/`
+
+An explicit option or environment path is caller-owned and bypasses all
+managed update checks. It must identify an absolute regular non-link file;
+bare names and relative paths are rejected, and no resolution branch consults
+ambient `PATH`. Otherwise the SDK checks
+`https://files.locker.io/cli/releases/latest.json` on first CLI use and then at most
+once per persisted six-hour interval. Importing the assembly and constructing
+a client do not perform network I/O.
+
+The source tree and package embed the reviewed production Ed25519 trust root,
+so default managed resolution is available without pinning a CLI version. A
+missing or malformed key still fails closed. The tagged-package release gate
+requires the embedded key to match the independent protected
+`LOCKER_CLI_RELEASE_PUBLIC_KEY` variable exactly.
+
+To force a signed latest check:
 
 ```csharp
-// Get a secret value by secret key.
-// If they Key does not exist, SDK will return the defaultValue
-var secretValue = service.GetSecret(
-    name: "REDIS_CONNECTION",
-    defaultValue: "Default Value"
-    )
-Console.WriteLine(secretValue);
-
-// Get a secret value by secret key and specific environment name.
-// If the Key does not exist, SDK will return the defaultValue
-secretValue = service.GetSecret(
-    name: "REDIS_CONNECTION",
-    environmentName: "staging",
-    defaultValue: "Default Value"
-    )
-Console.WriteLine(secretValue);
-
-// Get a secret value by secret key.
-// If they Key does not exist, SDK will throw exception
-var options = new SecretRetrieveOptions();
-var requestOptions = new RequestOptions();
-var secretValue = service.Get(
-    name: "REDIS_CONNECTION",
-    retrieveOptions: options,
-    requestOptions:requestOptions
-    )
-Console.WriteLine(secretValue);
-
-// Get a secret value by secret key and specific environment name.
-// If the Key does not exist, SDK will throw exception
-var options = new SecretRetrieveOptions();
-var requestOptions = new RequestOptions();
-var secretValue = service.Get(
-    name: "REDIS_CONNECTION",
-    environmentName: "staging",
-    retrieveOptions: options,
-    requestOptions:requestOptions
-    )
-Console.WriteLine(secretValue);
+using var installer = new LockerCliInstaller();
+var path = await installer.InstallAsync();
 ```
 
-### Create new secret
+The update chain is signed latest metadata, a size/SHA-bound signed manifest,
+and an exact platform artifact with SHA-256 plus a raw detached Ed25519
+signature. Parsing rejects duplicate keys, floats, non-ASCII strings,
+non-canonical JSON/base64url, BOMs, trailing data, unknown fields, unsafe
+paths, rollback, and same-version equivocation. The manifest must contain
+exactly the five canonical `linux`, `darwin`, and `windows` amd64/arm64
+artifacts and protocol `locker.sdk` v1 over JSON-RPC stdio.
+
+Verified versions are immutable. A process lock protects concurrent updates;
+the current reference and check state are flushed and atomically replaced.
+The language-specific cache prevents cross-SDK state/lock collisions.
+Existing shared `~/.locker` and `~/.locker/sdk-cli` ancestors are never
+rewritten; links, unsafe ownership, or unauthorized mutation permissions are
+rejected before the private .NET root is used.
+Every cached binary is reverified from its signed manifest and detached
+signature before use. Only a transient network/transport failure may fall
+back to that fully verified cache; signature, schema, path, hash, size,
+header, rollback, or local-cache failures fail closed. `system.capabilities`
+is negotiated before the first vault operation.
+
+The transport cryptographically rebinds a managed executable to that signed
+manifest plus a streamed size/SHA-256/header check immediately before every
+subprocess spawn. The detached signature is verified when a generation is
+installed or first loaded into the process; subsequent same-generation
+rebinds use a bounded pooled buffer instead of retaining the binary in memory.
+File length, timestamps, and identity metadata only optimize capability cache
+invalidation; they are never a managed-binary trust decision. Same-size
+in-place tampering is rejected even when mtime is restored. Explicit absolute
+paths remain caller-owned and receive only the documented non-link
+regular-file/identity policy, not managed-channel signature validation.
+
+## Process security
+
+Credentials, headers, secret values, and mutations are sent only in the JSON
+request body. Child argv is exactly `sdk`; inherited child environment is a
+strict operating-system allowlist that excludes Locker credentials. Requests,
+stdout, and stderr are bounded. Stdout uses the smaller of the local bound and
+the CLI-advertised `max_response_bytes`. Timeout or cancellation terminates
+the process tree and drains both output streams concurrently. One timeout
+budget covers managed resolution, capability negotiation, lock waits, and the
+vault operation; those phases do not each receive a fresh timeout. Managed
+installers also share a hardened process-wide HTTP connection pool while still
+re-verifying the signed cache before execution. Exceptions contain
+safe metadata, never raw requests or responses.
+
+### Timeout, cancellation, retry, and vault cache
+
+Every asynchronous operation accepts a `CancellationToken`. Cancellation or
+the total `LockerClientOptions.Timeout` stops managed resolution, update-lock
+waiting, capability negotiation, and the vault operation, and terminates the
+CLI process tree. Cancellation after a mutation reaches the server can leave
+its commit outcome unknown.
+
+The SDK does not retry API or JSON-RPC failures. Create and update are issued
+once. One internal capability rebind is allowed only when the CLI generation
+changes before an exchange and the transport classifies it safe to retry.
+Applications may inspect `LockerError.Retryable` and add bounded retry only to
+read-only operations.
+
+The SDK never retains plaintext secret values. `ForceRefresh` and
+`MaxAgeSeconds` are delegated to the CLI's encrypted, revision-aware cache.
+`MaxAgeSeconds = 0` disables offline reuse; `ForceRefresh = true` requires a
+successful server response. Authentication, authorization, TLS, integrity,
+malformed-response, and local-storage failures fail closed.
+
+## Error handling
+
+All Locker-defined failures derive from `LockerError` and expose safe
+structured metadata:
 
 ```csharp
-
-var service = new SecretService();
-var option = new SecretCreateOptions
-   {
-       Key = "YOUR_NEW_SECRET_KEY",
-       Value = "YOUR_NEW_SECRET_VALUE",
-   };
-var newSecret = service.Create(option);
-```
-
-### Update secret
-
-```csharp
-
-var service = new SecretService();
-var option = new SecretUpdateOptions
-   {
-       Key = "YOUR_UPDATE_SECRET_KEY",
-       Value = "YOUR_UPDATED_SECRET_VALUE",
-   };
-
-// Update a secret value by secret key
-var updated_secret = service.Modify(
-    name: "YOUR_SECRET_KEY",
-    updateOptions:option
-    );
-
-// Update a secret value by secret key and a specific environment name
-var updated_secret = service.Modify(
-    name: "YOUR_SECRET_KEY",
-    environmentName: "YOUR_ENV_NAME",
-    updateOptions:option
-    );
-```
-
-### List environments
-
-```csharp
-var service = new EnvironmentService();
-var environments = service.List();
-```
-
-### Get an environment object by name
-
-```csharp
-
-var service = new EnvironmentService();
-var environment = service.Get(name: "YOUR_ENV_NAME");
-Console.WriteLine(environment);
-```
-
-### Create new environment
-
-```csharp
-
-var service = new EnvironmentService();
-var option = new EnvironmentCreateOptions()
-   {
-       Name = "YOUR_NEW_ENV_NAME",
-       ExternalUrl = "YOUR_NEW_ENV_EXTERTAL_URL",
-       Description = "YOUR_NEW_ENV_DESCRIPTION"
-   };
-var newEnv = service.Create(option);
-```
-
-### Update an environment by name
-
-```csharp
-var service = new EnvironmentService();
-var option = new EnvironmentUpdateOptions()
-   {
-       Name = "YOUR_UPDATE_ENV_NAME",
-       ExternalUrl = "YOUR_UPDATE_EXTERNAL_URL"
-   };
-var updatedEnv = service.Modify(
-    name: "YOUR_ENV_NAME,
-    updateOptions:opton
-    );
-```
-
-### Error Handling
-
-Locker Secret SDK offers some kinds of errors. They can reflect external events, like invalid credentials, network
-interruptions, or code problems, like invalid API calls.
-
-If an immediate problem prevents a function from continuing, the SDK raises an exception. It’s a best practice to catch
-and handle exceptions. To catch an exception, use C Sharp’s `try/catch` syntax. Catch `LockerError` or its
-subclasses to handle Locker-specific exceptions only. Each subclass represents a different kind of exception. When you
-catch an exception, you can use its class to choose a response.
-
-Example:
-
-```csharp
-using Locker;
-
-LockerConfiguration.Instance.Init();
-SecretService service = new SecretService();
-var secretCreateOptions = new SecretCreateOptions
-{
-    Key = "your_secret_key",
-    Value = "your_secret_value",
-    Description = "your_secret_description",
-    EnvironemntName = "your_secret_environment_name"
-};
 try
 {
-    Secret newSecret = (Secret)service.Create(secretCreateOptions);
-    Console.WriteLine(newSecret);
+    await locker.Secrets.CreateAsync(
+        new SecretCreateOptions
+        {
+            Key = "PAYMENT_API_KEY",
+            Value = paymentApiKey,
+        },
+        cancellationToken);
 }
-catch (LockerError e)
+catch (AlreadyExistsError)
 {
-    Console.WriteLine(e);
+    // PAYMENT_API_KEY already exists.
+    // AlreadyExistsError is also a ConflictError.
+}
+catch (RateLimitError error) when (error.Retryable == true)
+{
+    // RetryAfterSeconds is an optional validated 0..86400 hint.
+    throw;
+}
+catch (LockerError error)
+{
+    logger.LogError(
+        "Locker failed: code={Code} kind={Kind} request={RequestId}",
+        error.Code,
+        error.Kind,
+        error.RequestId);
     throw;
 }
 ```
 
-In the SDK, error objects belong to LockerError and its subclasses. Use the documentation for each class
-for advice about how to respond.
+| Protocol code | Exception | Canonical kind |
+| ---: | --- | --- |
+| `-32700` | `ProtocolError` | `parse_error` |
+| `-32600` | `ProtocolError` | `invalid_request` |
+| `-32601` | `ProtocolError` | `method_not_found` |
+| `-32602` | `ProtocolError` | `invalid_params` |
+| `-32603` | `ProtocolError` | `internal_protocol_error` |
+| `-32000` | `APIError` and legacy subtypes | `operation_error`, `request_rejected`, `response_too_large`, `cancelled` |
+| `-32001` | `AuthenticationError` | `unauthorized`; legacy `invalid_secret_access_key` |
+| `-32003` | `PermissionDeniedError` | `forbidden`; legacy `permission_denied` |
+| `-32004` | `ResourceNotFoundError` | `secret_not_found`, `environment_not_found`; legacy not-found aliases |
+| `-32009` | `ConflictError` / `AlreadyExistsError` | `conflict`, `secret_already_exists`, `environment_already_exists` |
+| `-32022` | `ValidationError` | `validation_error` |
+| `-32029` | `RateLimitError` | `rate_limited` |
+| `-32050` | `APIConnectionError` | `network_error`, `network_timeout`; legacy `http_error` |
+| `-32051` | `APIServerError` | `service_unavailable`, `internal_error`; legacy `server_error` |
+| `-32060` | `LocalStorageError` | `database_error`, `file_error`, `path_error` |
+| `-32070` | `IntegrityError` | integrity, transport-integrity, and data-integrity kinds |
 
-| Name                    | Class                 | Description                                                                                                                                        |
-|-------------------------|-----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| Authentication Error    | AuthenticationError   | Invalid `access_client_id` or `invalid secret_access_key`                                                                                          |
-| Permission Denied Error | PermissionDeniedError | Your credential does not have enough permission to execute this operation                                                                          |
-| RateLimit Error         | RateLimitError        | Too many requests                                                                                                                                  |
-| API Error               | APIError              | You made an API call with the wrong parameters, in the wrong state, or in an invalid way or Something went wrong on Locker’s end (These are rare.) |
-| CLI Run Error           | CliRunError           | The encryption/decryption binary runs errors by invalid local data, process interruptions, or invalid `secret_access_key`                          |
+Do not log exception context that includes application variables or secret
+DTOs. Classification is numeric-first. Distinctive kinds from older CLI
+releases (`duplicate_hash`, `*_already_exists`, `conflict`,
+`validation_error`, and the integrity aliases) also retain their typed mapping
+when the legacy code is `-32000`. `request_rejected`, `response_too_large`,
+and `cancelled` have explicit `APIError` subtypes but are never guessed to be
+conflicts. Every `-32000` error and known authentication, permission,
+not-found, conflict, validation, storage, integrity, protocol, cancellation,
+and internal-server error exposes `Retryable == false`. Only rate-limit,
+network, service-unavailable, or an unknown server-range code can preserve a
+true hint. The SDK does not replay vault RPCs automatically.
 
-## Examples
-
-See the [examples' folder](/src/LockerExample).
+The SDK opts in with `context.error_contract = "typed-v1"` only after the
+exact contract appears in capability `error_contracts`; absence and unknown
+valid contracts remain compatible and are not sent. `ServerRequestId` is a
+separately validated upstream correlation ID. It never replaces the local
+JSON-RPC `RequestId` and is not included in default exception text.
 
 ## Development
 
-Run all tests from the `src/LockerTests` directory:
+Builds require the exact stable .NET SDK `8.0.423`; `global.json` disables
+roll-forward and prerelease SDK selection. CI uses a job-local NuGet package
+directory, restores every project in locked mode, validates every locked
+package content hash, and fails when NuGet reports a vulnerable direct or
+transitive package. The Windows runner must be provisioned ahead of time; jobs
+never download an SDK or install tools dynamically.
 
-```sh
-dotnet test
+Hermetic tests are the default and use a local fake protocol CLI:
+
+```shell
+pwsh -File scripts/verify-ci-supply-chain.ps1
+dotnet restore src/Locker.sln
+dotnet format src/Locker.sln --verify-no-changes
+dotnet test src/Locker.sln --configuration Release
+dotnet pack src/Locker/Locker.csproj --configuration Release --no-build
 ```
 
-Run some tests, filtering by name:
+Live Locker credentials are never required by the default test suite. Any
+future live suite must be separately gated by `LOCKER_RUN_LIVE_TESTS=1`.
 
-```sh
-dotnet test --filter FullyQualifiedName~SecretServiceTest
+## Automatic releases
+
+Every accepted two-parent merge into protected `main` releases exactly one
+patch version, beginning at `1.0.0`. The version is derived from the reviewed
+first-parent history in `scripts/release-policy.json`; direct, squash, rebase,
+fast-forward, rewritten-baseline, and mispointed-tag histories fail closed.
+Concurrent pipelines wait for the exact immediate-predecessor tag, so patch
+versions cannot be skipped. The `auto-release` job also uses the
+`lockersm-nuget` resource group to avoid multiple release jobs occupying the
+Windows runner while waiting. Set that resource group's process mode to
+`oldest_first`; GitLab's default `unordered` mode serializes jobs without
+preserving release order. The predecessor-tag check remains an independent
+fail-closed ordering invariant.
+
+Provision the `win01` runner with the exact .NET SDK from `global.json`.
+Protect `main`, `v*`, and the `nuget` deployment environment, then configure
+GitLab so `main` accepts only merge commits with a successful pipeline. Reject
+`[ci skip]` and `[skip ci]` in protected-main commit messages with a push rule,
+and use a pipeline execution policy to prevent the `ci.skip` and
+`ci.no_pipeline` push options where the installed GitLab tier supports it.
+Otherwise one skipped merge can leave the immediate-predecessor release chain
+permanently incomplete. Configure these protected variables:
+
+- `NUGET_API_KEY`: a short-lived NuGet.org key scoped only to the
+  `lockersm` package with `Push new package versions` permission. Rotate it
+  before expiry. The pinned .NET 8.0.423 CLI still receives this key as a
+  child-process argument, so keep the Windows runner dedicated, access
+  restricted, and free of untrusted same-host processes.
+- `LOCKER_CLI_RELEASE_PUBLIC_KEY`: the canonical 43-character, unpadded
+  base64url raw Ed25519 public key used by the CLI release channel.
+
+After the first pipeline creates the resource group, a Maintainer must set its
+ordering once:
+
+```shell
+curl --request PUT \
+  --header "PRIVATE-TOKEN: <maintainer-token>" \
+  --data "process_mode=oldest_first" \
+  "https://git.cystack.org/api/v4/projects/<project-id>/resource_groups/lockersm-nuget"
 ```
 
-The library uses [`dotnet-format`][dotnet-format] for code formatting. Code
-must be formatted before PRs are submitted, otherwise CI will fail. Run the
-formatter with:
+The release job builds and tests the derived version, validates the exact
+package payload and embedded trust root, publishes or reconciles NuGet.org,
+verifies its repository signature, and only then creates or reconciles the
+GitLab tag and Release. Bounded job retries are safe: immutable executable and
+metadata payloads must match, while NuGet's regenerated OPC relationship and
+core-properties identifiers are parsed and compared semantically.
 
-```sh
-dotnet format src/Locker.sln
-```
+Report security issues privately to <contact@locker.io>.
 
-## Reporting security issues
+## Migration, troubleshooting, and support
 
-We take the security and our users' trust very seriously. If you found a security issue in Locker SDK .NET, please
-report the issue by contacting us at <contact@locker.io>. Do not file an issue on the tracker.
+Version 1 is the stable protocol-v1 boundary. Replace direct REST calls,
+human-output parsing, relative CLI names, and legacy credential variables
+with typed services, managed mode or an absolute caller-owned path, and the
+canonical `LOCKER_*` pair.
 
-## Contributing
+- Authentication/permission errors: verify the full credential pair and its
+  project/environment scope.
+- `LockerCliDistributionUnavailableError`: check system time, HTTPS access to
+  `files.locker.io`, and private ownership below
+  `~/.locker/sdk-cli/dotnet`.
+- `CliRunError` / `LockerTimeoutError`: check the absolute path, timeout,
+  cancellation source, and host process policy.
+- `ProtocolError`: upgrade the SDK and CLI together or remove an incompatible
+  explicit `LOCKER_CLI_PATH`.
+- Unexpected stale reads: use `ForceRefresh`; never loosen cache permissions.
 
-Please check [CONTRIBUTING](CONTRIBUTING.md) before making a contribution.
-
-## Help and media
-
-- FAQ: https://support.locker.io
-
-- Community Q&A: https://forum.locker.io
-
-- News: https://locker.io/blog
+Product help is available at [support.locker.io](https://support.locker.io).
 
 ## License
+
+Apache License 2.0. See [LICENSE](LICENSE).
