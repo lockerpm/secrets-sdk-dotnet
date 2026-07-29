@@ -252,17 +252,22 @@ structured metadata:
 ```csharp
 try
 {
-    var value = await locker.Secrets.GetRequiredAsync(
-        "DATABASE_PASSWORD",
-        cancellationToken: cancellationToken);
+    await locker.Secrets.CreateAsync(
+        new SecretCreateOptions
+        {
+            Key = "PAYMENT_API_KEY",
+            Value = paymentApiKey,
+        },
+        cancellationToken);
 }
-catch (ResourceNotFoundError)
+catch (AlreadyExistsError)
 {
-    // Handle only a genuine not-found result.
+    // PAYMENT_API_KEY already exists.
+    // AlreadyExistsError is also a ConflictError.
 }
 catch (RateLimitError error) when (error.Retryable == true)
 {
-    // Apply application-owned bounded backoff to this read only.
+    // RetryAfterSeconds is an optional validated 0..86400 hint.
     throw;
 }
 catch (LockerError error)
@@ -276,18 +281,42 @@ catch (LockerError error)
 }
 ```
 
-| Protocol code | Exception |
-| ---: | --- |
-| `-32001` | `AuthenticationError` |
-| `-32003` | `PermissionDeniedError` |
-| `-32004` | `ResourceNotFoundError` |
-| `-32029` | `RateLimitError` |
-| `-32050` | `APIConnectionError` |
-| `-32051` | `APIServerError` |
-| `-32060` | `LocalStorageError` |
+| Protocol code | Exception | Canonical kind |
+| ---: | --- | --- |
+| `-32700` | `ProtocolError` | `parse_error` |
+| `-32600` | `ProtocolError` | `invalid_request` |
+| `-32601` | `ProtocolError` | `method_not_found` |
+| `-32602` | `ProtocolError` | `invalid_params` |
+| `-32603` | `ProtocolError` | `internal_protocol_error` |
+| `-32000` | `APIError` and legacy subtypes | `operation_error`, `request_rejected`, `response_too_large`, `cancelled` |
+| `-32001` | `AuthenticationError` | `unauthorized`; legacy `invalid_secret_access_key` |
+| `-32003` | `PermissionDeniedError` | `forbidden`; legacy `permission_denied` |
+| `-32004` | `ResourceNotFoundError` | `secret_not_found`, `environment_not_found`; legacy not-found aliases |
+| `-32009` | `ConflictError` / `AlreadyExistsError` | `conflict`, `secret_already_exists`, `environment_already_exists` |
+| `-32022` | `ValidationError` | `validation_error` |
+| `-32029` | `RateLimitError` | `rate_limited` |
+| `-32050` | `APIConnectionError` | `network_error`, `network_timeout`; legacy `http_error` |
+| `-32051` | `APIServerError` | `service_unavailable`, `internal_error`; legacy `server_error` |
+| `-32060` | `LocalStorageError` | `database_error`, `file_error`, `path_error` |
+| `-32070` | `IntegrityError` | integrity, transport-integrity, and data-integrity kinds |
 
 Do not log exception context that includes application variables or secret
-DTOs.
+DTOs. Classification is numeric-first. Distinctive kinds from older CLI
+releases (`duplicate_hash`, `*_already_exists`, `conflict`,
+`validation_error`, and the integrity aliases) also retain their typed mapping
+when the legacy code is `-32000`. `request_rejected`, `response_too_large`,
+and `cancelled` have explicit `APIError` subtypes but are never guessed to be
+conflicts. Every `-32000` error and known authentication, permission,
+not-found, conflict, validation, storage, integrity, protocol, cancellation,
+and internal-server error exposes `Retryable == false`. Only rate-limit,
+network, service-unavailable, or an unknown server-range code can preserve a
+true hint. The SDK does not replay vault RPCs automatically.
+
+The SDK opts in with `context.error_contract = "typed-v1"` only after the
+exact contract appears in capability `error_contracts`; absence and unknown
+valid contracts remain compatible and are not sent. `ServerRequestId` is a
+separately validated upstream correlation ID. It never replaces the local
+JSON-RPC `RequestId` and is not included in default exception text.
 
 ## Development
 

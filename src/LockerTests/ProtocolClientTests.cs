@@ -1,4 +1,6 @@
 using Locker;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.Security.Cryptography;
 using Xunit;
 
@@ -56,6 +58,36 @@ public sealed class ProtocolClientTests
             (await client.Environments.UpdateAsync(
                 "production",
                 new EnvironmentUpdateOptions { Description = string.Empty })).Name);
+    }
+
+    [Fact]
+    public async Task BindsTypedErrorsOnlyWhenAdvertised()
+    {
+        foreach (var mode in new[]
+        {
+            "legacy-error-contract",
+            "unknown-error-contract",
+        })
+        {
+            await WithFixtureModeAsync(
+                mode,
+                async () =>
+                {
+                    using var client = CreateClient();
+                    Assert.Equal(
+                        "key",
+                        (await client.Secrets.GetAsync("key")).Key);
+                });
+        }
+
+        await WithFixtureModeAsync(
+            "invalid-error-contract",
+            async () =>
+            {
+                using var client = CreateClient();
+                await Assert.ThrowsAsync<ProtocolError>(
+                    () => client.Secrets.GetAsync("key"));
+            });
     }
 
     [Theory]
@@ -256,14 +288,169 @@ public sealed class ProtocolClientTests
 
         var operation = await Assert.ThrowsAsync<APIError>(
             () => client.Secrets.GetAsync("unsafe-error"));
-        Assert.Equal("Locker operation failed.", operation.Message);
+        Assert.Equal("the Locker operation failed", operation.Message);
         Assert.DoesNotContain("secret-value-from-cli", operation.ToString(), StringComparison.Ordinal);
 
-        var tooLarge = await Assert.ThrowsAsync<APIError>(
+        var tooLarge = await Assert.ThrowsAsync<ResponseTooLargeError>(
             () => client.Secrets.GetAsync("response-too-large-error"));
         Assert.Equal(-32000, tooLarge.Code);
         Assert.Equal("response_too_large", tooLarge.Kind);
         Assert.False(tooLarge.Retryable);
+    }
+
+    [Fact]
+    public void MapsStableAndLegacyOperationErrorTaxonomy()
+    {
+        var cases = new[]
+        {
+            (-32009, "secret_already_exists", typeof(AlreadyExistsError)),
+            (-32009, "environment_already_exists", typeof(AlreadyExistsError)),
+            (-32009, "conflict", typeof(ConflictError)),
+            (-32022, "validation_error", typeof(ValidationError)),
+            (-32070, "integrity_error", typeof(IntegrityError)),
+            (-32051, "internal_error", typeof(APIServerError)),
+            (-32000, "duplicate_hash", typeof(AlreadyExistsError)),
+            (-32000, "conflict", typeof(ConflictError)),
+            (-32000, "validation_error", typeof(ValidationError)),
+            (-32000, "integrity_error", typeof(IntegrityError)),
+            (-32000, "request_rejected", typeof(RequestRejectedError)),
+            (-32000, "response_too_large", typeof(ResponseTooLargeError)),
+            (-32000, "cancelled", typeof(OperationCancelledError)),
+        };
+
+        foreach (var (code, kind, expectedType) in cases)
+        {
+            var envelope = new Newtonsoft.Json.Linq.JObject
+            {
+                ["jsonrpc"] = "2.0",
+                ["id"] = "request-taxonomy",
+                ["error"] = new Newtonsoft.Json.Linq.JObject
+                {
+                    ["code"] = code,
+                    ["message"] = "sensitive-value-from-broken-cli",
+                    ["data"] = new Newtonsoft.Json.Linq.JObject
+                    {
+                        ["protocol_version"] = 1,
+                        ["kind"] = kind,
+                        ["retryable"] = true,
+                    },
+                },
+            };
+
+            var error = Assert.IsAssignableFrom<LockerError>(
+                Record.Exception(
+                    () => StrictProtocolResponse.Parse(
+                        envelope.ToString(Newtonsoft.Json.Formatting.None),
+                        "request-taxonomy")));
+            Assert.Equal(expectedType, error.GetType());
+            Assert.Equal(code, error.Code);
+            Assert.Equal(kind, error.Kind);
+            Assert.False(error.Retryable);
+            Assert.DoesNotContain(
+                "sensitive-value",
+                error.Message,
+                StringComparison.Ordinal);
+            if (kind == "secret_already_exists")
+            {
+                Assert.Equal(
+                    "a secret with this key already exists",
+                    error.Message);
+            }
+            if (error is AlreadyExistsError)
+            {
+                Assert.IsAssignableFrom<ConflictError>(error);
+            }
+        }
+
+        var genericEnvelope = new Newtonsoft.Json.Linq.JObject
+        {
+            ["jsonrpc"] = "2.0",
+            ["id"] = "request-taxonomy",
+            ["error"] = new Newtonsoft.Json.Linq.JObject
+            {
+                ["code"] = -32000,
+                ["message"] = "generic rejection",
+                ["data"] = new Newtonsoft.Json.Linq.JObject
+                {
+                    ["protocol_version"] = 1,
+                    ["kind"] = "request_rejected",
+                    ["retryable"] = false,
+                },
+            },
+        };
+        var generic = Assert.IsAssignableFrom<LockerError>(
+            Record.Exception(
+                () => StrictProtocolResponse.Parse(
+                    genericEnvelope.ToString(Newtonsoft.Json.Formatting.None),
+                    "request-taxonomy")));
+        Assert.IsType<RequestRejectedError>(generic);
+        Assert.Equal("the request is invalid", generic.Message);
+
+        var futureServerEnvelope = new Newtonsoft.Json.Linq.JObject
+        {
+            ["jsonrpc"] = "2.0",
+            ["id"] = "request-taxonomy",
+            ["error"] = new Newtonsoft.Json.Linq.JObject
+            {
+                ["code"] = -32099,
+                ["message"] = "safe future error",
+                ["data"] = new Newtonsoft.Json.Linq.JObject
+                {
+                    ["protocol_version"] = 1,
+                    ["kind"] = "future_error",
+                    ["retryable"] = true,
+                },
+            },
+        };
+        var future = Assert.IsType<APIError>(
+            Record.Exception(
+                () => StrictProtocolResponse.Parse(
+                    futureServerEnvelope.ToString(Newtonsoft.Json.Formatting.None),
+                    "request-taxonomy")));
+        Assert.Equal(-32099, future.Code);
+        Assert.True(future.Retryable);
+
+        futureServerEnvelope["error"]!["data"]!["kind"] =
+            "secret_already_exists";
+        var futureKnownKind = Assert.IsType<APIError>(
+            Record.Exception(
+                () => StrictProtocolResponse.Parse(
+                    futureServerEnvelope.ToString(Newtonsoft.Json.Formatting.None),
+                    "request-taxonomy")));
+        Assert.Equal("the Locker operation failed", futureKnownKind.Message);
+        Assert.True(futureKnownKind.Retryable);
+
+        foreach (var (code, kind, message) in new[]
+        {
+            (-32100, "future_error", "safe error"),
+            (-32000, "Invalid-Kind", "safe error"),
+            (-32000, "operation_error", "unsafe\nlog"),
+            (-32000, "operation_error", string.Concat(
+                Enumerable.Repeat("é", 513))),
+        })
+        {
+            var malformed = new Newtonsoft.Json.Linq.JObject
+            {
+                ["jsonrpc"] = "2.0",
+                ["id"] = "request-taxonomy",
+                ["error"] = new Newtonsoft.Json.Linq.JObject
+                {
+                    ["code"] = code,
+                    ["message"] = message,
+                    ["data"] = new Newtonsoft.Json.Linq.JObject
+                    {
+                        ["protocol_version"] = 1,
+                        ["kind"] = kind,
+                        ["retryable"] = false,
+                    },
+                },
+            };
+            Assert.IsType<ProtocolError>(
+                Record.Exception(
+                    () => StrictProtocolResponse.Parse(
+                        malformed.ToString(Newtonsoft.Json.Formatting.None),
+                        "request-taxonomy")));
+        }
     }
 
     [Fact]
@@ -337,6 +524,9 @@ public sealed class ProtocolClientTests
                 "environment.list",
                 "environment.create",
                 "environment.update"),
+            ["error_contracts"] = new Newtonsoft.Json.Linq.JArray(
+                "typed-v1",
+                "future-v2"),
             ["limits"] = new Newtonsoft.Json.Linq.JObject
             {
                 ["max_request_bytes"] = 20 * 1024 * 1024,
@@ -347,6 +537,8 @@ public sealed class ProtocolClientTests
 
         var parsed = ProtocolDataParser.ParseCapabilities(valid);
         Assert.Contains("system.capabilities", parsed.Methods);
+        Assert.Contains("typed-v1", parsed.ErrorContracts);
+        Assert.Contains("future-v2", parsed.ErrorContracts);
         Assert.Equal(20 * 1024 * 1024, parsed.MaxResponseBytes);
         LockerClient.ValidateRequiredMethods(parsed.Methods);
 
@@ -370,8 +562,188 @@ public sealed class ProtocolClientTests
         Assert.Equal(LockerClientOptions.ProtocolRequestLimitBytes, parsed.MaxRequestBytes);
         Assert.Equal(LockerClientOptions.ProtocolResponseLimitBytes, parsed.MaxResponseBytes);
 
+        valid["error_contracts"] = new Newtonsoft.Json.Linq.JArray(
+            "typed-v1",
+            "typed-v1");
+        Assert.Throws<ProtocolError>(
+            () => ProtocolDataParser.ParseCapabilities(valid));
+        valid["error_contracts"] = new Newtonsoft.Json.Linq.JArray(
+            "typed-v1");
+
         ((Newtonsoft.Json.Linq.JObject)valid["limits"]!).Remove("max_response_bytes");
         Assert.Throws<ProtocolError>(() => ProtocolDataParser.ParseCapabilities(valid));
+    }
+
+    [Fact]
+    public void UsesCanonicalMessagesAndClosedRetrySemantics()
+    {
+        var cases = new[]
+        {
+            (-32700, "parse_error", "the Locker CLI returned invalid JSON", false),
+            (-32600, "invalid_request", "the Locker CLI rejected the request envelope", false),
+            (-32601, "method_not_found", "the requested Locker operation is not supported", false),
+            (-32602, "invalid_params", "the Locker request parameters are invalid", false),
+            (
+                -32603,
+                "internal_protocol_error",
+                "the Locker CLI encountered an internal protocol error",
+                false),
+            (-32001, "authentication_error", "authentication failed", false),
+            (
+                -32003,
+                "permission_denied",
+                "you do not have permission to perform this operation",
+                false),
+            (-32004, "not_found_error", "the requested resource was not found", false),
+            (-32060, "storage_error", "local storage operation failed", false),
+            (-32051, "internal_error", "the request could not be completed", false),
+            (
+                -32051,
+                "service_unavailable",
+                "the service is temporarily unavailable",
+                true),
+        };
+        foreach (var (code, kind, message, retryable) in cases)
+        {
+            var envelope = new Newtonsoft.Json.Linq.JObject
+            {
+                ["jsonrpc"] = "2.0",
+                ["id"] = "request-canonical",
+                ["error"] = new Newtonsoft.Json.Linq.JObject
+                {
+                    ["code"] = code,
+                    ["message"] = "sensitive-value-from-broken-cli",
+                    ["data"] = new Newtonsoft.Json.Linq.JObject
+                    {
+                        ["protocol_version"] = 1,
+                        ["kind"] = kind,
+                        ["retryable"] = true,
+                    },
+                },
+            };
+            var error = Assert.IsAssignableFrom<LockerError>(
+                Record.Exception(
+                    () => StrictProtocolResponse.Parse(
+                        envelope.ToString(Newtonsoft.Json.Formatting.None),
+                        "request-canonical")));
+            Assert.Equal(message, error.Message);
+            Assert.Equal(retryable, error.Retryable);
+        }
+    }
+
+    [Fact]
+    public void ValidatesAndExposesRateLimitRetryAfterSeconds()
+    {
+        foreach (var retryAfterSeconds in new[] { 0, 86400 })
+        {
+            var error = Assert.IsType<RateLimitError>(
+                ParseError(
+                    -32029,
+                    "rate_limited",
+                    retryAfterSeconds));
+            Assert.Equal(retryAfterSeconds, error.RetryAfterSeconds);
+            Assert.True(error.Retryable);
+        }
+
+        foreach (var retryAfterSeconds in new Newtonsoft.Json.Linq.JToken[]
+        {
+            true,
+            -1,
+            86401,
+            1.5,
+        })
+        {
+            Assert.IsType<ProtocolError>(
+                ParseError(
+                    -32029,
+                    "rate_limited",
+                    retryAfterSeconds));
+        }
+
+        var server = Assert.IsType<APIServerError>(
+            ParseError(
+                -32051,
+                "service_unavailable",
+                30));
+        Assert.IsNotType<RateLimitError>(server);
+    }
+
+    [Fact]
+    public void ValidatesAndSeparatesServerRequestId()
+    {
+        const string serverRequestId = "upstream_Request-123456";
+        var mapped = Assert.IsType<APIServerError>(
+            ParseServerRequestError(serverRequestId));
+        Assert.Equal("json-rpc-request-id", mapped.RequestId);
+        Assert.Equal(serverRequestId, mapped.ServerRequestId);
+
+        foreach (var invalid in new JToken[]
+        {
+            true,
+            "short",
+            "request.id.not.allowed",
+            new string('a', 129),
+        })
+        {
+            Assert.IsType<ProtocolError>(
+                ParseServerRequestError(invalid));
+        }
+    }
+
+    private static LockerError ParseError(
+        int code,
+        string kind,
+        Newtonsoft.Json.Linq.JToken retryAfterSeconds)
+    {
+        var envelope = new Newtonsoft.Json.Linq.JObject
+        {
+            ["jsonrpc"] = "2.0",
+            ["id"] = "request-rate-limit",
+            ["error"] = new Newtonsoft.Json.Linq.JObject
+            {
+                ["code"] = code,
+                ["message"] = "unsafe error detail",
+                ["data"] = new Newtonsoft.Json.Linq.JObject
+                {
+                    ["protocol_version"] = 1,
+                    ["kind"] = kind,
+                    ["retryable"] = true,
+                    ["retry_after_seconds"] = retryAfterSeconds,
+                },
+            },
+        };
+        return Assert.IsAssignableFrom<LockerError>(
+            Record.Exception(
+                () => StrictProtocolResponse.Parse(
+                    envelope.ToString(Newtonsoft.Json.Formatting.None),
+                    "request-rate-limit")));
+    }
+
+    private static LockerError ParseServerRequestError(
+        JToken serverRequestId)
+    {
+        var envelope = new JObject
+        {
+            ["jsonrpc"] = "2.0",
+            ["id"] = "json-rpc-request-id",
+            ["error"] = new JObject
+            {
+                ["code"] = -32051,
+                ["message"] = "unsafe server detail",
+                ["data"] = new JObject
+                {
+                    ["protocol_version"] = 1,
+                    ["kind"] = "service_unavailable",
+                    ["retryable"] = true,
+                    ["server_request_id"] = serverRequestId,
+                },
+            },
+        };
+        return Assert.IsAssignableFrom<LockerError>(
+            Record.Exception(
+                () => StrictProtocolResponse.Parse(
+                    envelope.ToString(Formatting.None),
+                    "json-rpc-request-id")));
     }
 
     [Fact]
@@ -485,12 +857,14 @@ public sealed class ProtocolClientTests
 
         var options = CreateOptions(FakeCliPath);
         var transport = new ProtocolTransport(options);
+        var context = transport.CreateContext();
+        context["error_contract"] = "typed-v1";
         await Assert.ThrowsAsync<LockerResponseTooLargeError>(
             () => transport.CallAsync(
                 "secret.get",
                 new Newtonsoft.Json.Linq.JObject
                 {
-                    ["context"] = transport.CreateContext(),
+                    ["context"] = context,
                     ["key"] = "response-cap",
                 },
                 CancellationToken.None,

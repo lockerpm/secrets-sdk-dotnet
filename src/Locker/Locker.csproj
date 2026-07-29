@@ -31,5 +31,10 @@
     <None Include="..\..\LICENSE" Pack="true" PackagePath="" />
     <None Include="..\..\README.md" Pack="true" PackagePath="" />
     <EmbeddedResource Include="locker-cli-release.json" LogicalName="Locker.locker-cli-release.json" />
+    <EmbeddedResource Include="Protocol\locker-rpc-errors.v1.json"
+                      LogicalName="Locker.Protocol.locker-rpc-errors.v1.json" />
+    <None Update="Protocol\locker-rpc-errors.v1.json"
+          Pack="true"
+          PackagePath="protocol" />
   </ItemGroup>
 </Project>

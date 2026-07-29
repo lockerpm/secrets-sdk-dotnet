@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -255,14 +256,14 @@ internal static class StrictProtocolResponse
     private static LockerError CreateError(JObject error, string requestId)
     {
         var code = RequireInteger(error, "code");
-        RequireString(error, "message");
+        var message = RequireString(error, "message");
         var data = RequireObject(Require(error, "data"), "error.data");
         RequireInteger(
             data,
             "protocol_version",
             LockerSdkMetadata.ProtocolVersion);
         var kind = RequireString(data, "kind");
-        if (string.IsNullOrWhiteSpace(kind) || kind.Length > 256)
+        if (!IsValidErrorKind(kind) || !IsValidErrorMessage(message))
         {
             throw new ProtocolError(
                 "Locker CLI error kind is invalid.",
@@ -275,39 +276,322 @@ internal static class StrictProtocolResponse
         }
 
         var retryable = (bool)retryableToken;
-        var safeMessage = SafeErrorMessage(code);
-        return code switch
+        int? retryAfterSeconds = null;
+        if (data.TryGetValue(
+            "retry_after_seconds",
+            StringComparison.Ordinal,
+            out var retryAfterToken))
         {
-            -32001 => new AuthenticationError(safeMessage, code, requestId, kind, retryable),
-            -32003 => new PermissionDeniedError(safeMessage, code, requestId, kind, retryable),
-            -32004 => new ResourceNotFoundError(safeMessage, code, requestId, kind, retryable),
-            -32029 => new RateLimitError(safeMessage, code, requestId, kind, retryable),
-            -32050 => new APIConnectionError(safeMessage, code, requestId, kind, retryable),
-            -32051 => new APIServerError(safeMessage, code, requestId, kind, retryable),
-            -32060 => new LocalStorageError(safeMessage, code, requestId, kind, retryable),
-            -32000 => new APIError(safeMessage, code, requestId, kind, retryable),
+            if (retryAfterToken.Type != JTokenType.Integer)
+            {
+                throw new ProtocolError(
+                    "Locker CLI error retry-after field has the wrong type.",
+                    requestId: requestId);
+            }
+            int value;
+            try
+            {
+                value = retryAfterToken.ToObject<int>();
+            }
+            catch (Exception ex) when (ex is FormatException or OverflowException)
+            {
+                throw new ProtocolError(
+                    "Locker CLI error retry-after field is outside the integer range.",
+                    requestId: requestId);
+            }
+            if (value is < 0 or > 86400)
+            {
+                throw new ProtocolError(
+                    "Locker CLI error retry-after field has an unsupported value.",
+                    requestId: requestId);
+            }
+            if (code == -32029 && kind == "rate_limited")
+            {
+                retryAfterSeconds = value;
+            }
+        }
+        string? serverRequestId = null;
+        if (data.TryGetValue(
+            "server_request_id",
+            StringComparison.Ordinal,
+            out var serverRequestToken))
+        {
+            if (serverRequestToken.Type != JTokenType.String)
+            {
+                throw new ProtocolError(
+                    "Locker CLI error server request ID has the wrong type.",
+                    requestId: requestId);
+            }
+            serverRequestId = (string?)serverRequestToken;
+            if (serverRequestId is null
+                || !IsValidServerRequestId(serverRequestId))
+            {
+                throw new ProtocolError(
+                    "Locker CLI error server request ID has an unsupported value.",
+                    requestId: requestId);
+            }
+        }
+        var effectiveRetryable = retryable
+            && !IsNormativelyNonRetryable(code, kind);
+        var safeMessage = SafeErrorMessage(code, kind);
+        if (!IsStandardProtocolCode(code)
+            && !IsLockerServerErrorCode(code))
+        {
+            return WithServerRequestId(new ProtocolError(
+                "unsupported JSON-RPC error code",
+                code,
+                requestId,
+                kind), serverRequestId);
+        }
+        if ((code == -32009 || code == -32000)
+            && IsAlreadyExistsKind(kind))
+        {
+            return WithServerRequestId(new AlreadyExistsError(
+                safeMessage,
+                code,
+                requestId,
+                kind,
+                effectiveRetryable), serverRequestId);
+        }
+        if (code == -32009 || (code == -32000 && kind == "conflict"))
+        {
+            return WithServerRequestId(new ConflictError(
+                safeMessage,
+                code,
+                requestId,
+                kind,
+                effectiveRetryable), serverRequestId);
+        }
+        if (code == -32022
+            || (code == -32000 && kind == "validation_error"))
+        {
+            return WithServerRequestId(new ValidationError(
+                safeMessage,
+                code,
+                requestId,
+                kind,
+                effectiveRetryable), serverRequestId);
+        }
+        if (code == -32070
+            || (code == -32000 && IsIntegrityKind(kind)))
+        {
+            return WithServerRequestId(new IntegrityError(
+                safeMessage,
+                code,
+                requestId,
+                kind,
+                effectiveRetryable), serverRequestId);
+        }
+        if (code == -32000 && kind == "request_rejected")
+        {
+            return WithServerRequestId(new RequestRejectedError(
+                safeMessage,
+                code,
+                requestId,
+                kind,
+                false), serverRequestId);
+        }
+        if (code == -32000 && kind == "response_too_large")
+        {
+            return WithServerRequestId(new ResponseTooLargeError(
+                safeMessage,
+                code,
+                requestId,
+                kind,
+                false), serverRequestId);
+        }
+        if (code == -32000 && kind == "cancelled")
+        {
+            return WithServerRequestId(new OperationCancelledError(
+                safeMessage,
+                code,
+                requestId,
+                kind,
+                false), serverRequestId);
+        }
+        LockerError mapped = code switch
+        {
+            -32001 => new AuthenticationError(safeMessage, code, requestId, kind, effectiveRetryable),
+            -32003 => new PermissionDeniedError(safeMessage, code, requestId, kind, effectiveRetryable),
+            -32004 => new ResourceNotFoundError(safeMessage, code, requestId, kind, effectiveRetryable),
+            -32029 => new RateLimitError(
+                safeMessage,
+                code,
+                requestId,
+                kind,
+                effectiveRetryable,
+                retryAfterSeconds),
+            -32050 => new APIConnectionError(safeMessage, code, requestId, kind, effectiveRetryable),
+            -32051 => new APIServerError(safeMessage, code, requestId, kind, effectiveRetryable),
+            -32060 => new LocalStorageError(safeMessage, code, requestId, kind, effectiveRetryable),
+            -32000 => new APIError(safeMessage, code, requestId, kind, effectiveRetryable),
             -32700 or -32600 or -32601 or -32602 or -32603 =>
                 new ProtocolError(safeMessage, code, requestId, kind),
-            _ => new APIError(safeMessage, code, requestId, kind, retryable),
+            _ => new APIError(safeMessage, code, requestId, kind, effectiveRetryable),
+        };
+        return WithServerRequestId(mapped, serverRequestId);
+    }
+
+    private static T WithServerRequestId<T>(
+        T error,
+        string? serverRequestId)
+        where T : LockerError
+    {
+        error.ServerRequestId = serverRequestId;
+        return error;
+    }
+
+    private static string SafeErrorMessage(int code, string kind)
+    {
+        if ((code == -32009 || code == -32000)
+            && IsAlreadyExistsKind(kind))
+        {
+            return kind switch
+            {
+                "secret_already_exists" =>
+                    "a secret with this key already exists",
+                "environment_already_exists" =>
+                    "an environment with this name already exists",
+                _ => "the requested resource already exists",
+            };
+        }
+
+        return code switch
+        {
+            -32700 => "the Locker CLI returned invalid JSON",
+            -32600 => "the Locker CLI rejected the request envelope",
+            -32601 => "the requested Locker operation is not supported",
+            -32602 => "the Locker request parameters are invalid",
+            -32603 => "the Locker CLI encountered an internal protocol error",
+            -32001 => "authentication failed",
+            -32003 => "you do not have permission to perform this operation",
+            -32004 => kind switch
+            {
+                "secret_not_found" => "the requested secret was not found",
+                "environment_not_found" => "the requested environment was not found",
+                _ => "the requested resource was not found",
+            },
+            -32009 => "the operation conflicts with current state",
+            -32022 => "the request is invalid",
+            -32029 => "too many requests; retry later",
+            -32050 => kind == "network_timeout"
+                ? "network request timed out"
+                : "network request failed",
+            -32051 => kind == "internal_error"
+                ? "the request could not be completed"
+                : "the service is temporarily unavailable",
+            -32060 => "local storage operation failed",
+            -32070 => IntegrityMessage(kind),
+            -32000 => kind switch
+            {
+                "conflict" => "the operation conflicts with current state",
+                "validation_error" => "the request is invalid",
+                "request_rejected" => "the request is invalid",
+                "response_too_large" => "protocol response exceeds the size limit",
+                "cancelled" => "request cancelled",
+                "integrity_error" => "stored data failed an integrity check",
+                "transport_integrity_error" => "transport integrity verification failed",
+                "data_integrity_error" or "data_error" => "data integrity verification failed",
+                _ => "the Locker operation failed",
+            },
+            _ => "the Locker operation failed",
         };
     }
 
-    private static string SafeErrorMessage(int code) => code switch
+    private static bool IsAlreadyExistsKind(string kind) =>
+        kind is "already_exists"
+            or "secret_already_exists"
+            or "environment_already_exists"
+            or "duplicate_hash";
+
+    private static bool IsNormativelyNonRetryable(int code, string kind) =>
+        IsStandardProtocolCode(code)
+        || code is -32000
+            or -32001
+            or -32003
+            or -32004
+            or -32009
+            or -32022
+            or -32060
+            or -32070
+        || (code == -32051 && kind == "internal_error");
+
+    private static bool IsIntegrityKind(string kind) =>
+        kind is "integrity_error"
+            or "transport_integrity_error"
+            or "data_integrity_error"
+            or "data_error";
+
+    private static string IntegrityMessage(string kind) => kind switch
     {
-        -32700 => "Locker CLI could not parse the SDK protocol request.",
-        -32600 => "Locker CLI rejected the SDK protocol request.",
-        -32601 => "Locker CLI does not support the SDK operation.",
-        -32602 => "Locker CLI rejected the SDK operation parameters.",
-        -32603 => "Locker CLI protocol failed.",
-        -32001 => "Locker authentication failed.",
-        -32003 => "Locker permission was denied.",
-        -32004 => "Locker resource was not found.",
-        -32029 => "Locker request was rate limited.",
-        -32050 => "Locker network request failed.",
-        -32051 => "Locker server request failed.",
-        -32060 => "Locker local storage operation failed.",
-        _ => "Locker operation failed.",
+        "integrity_error" => "stored data failed an integrity check",
+        "transport_integrity_error" => "transport integrity verification failed",
+        "data_integrity_error" or "data_error" => "data integrity verification failed",
+        _ => "data integrity verification failed",
     };
+
+    private static bool IsStandardProtocolCode(int code) =>
+        code is -32700 or -32600 or -32601 or -32602 or -32603;
+
+    private static bool IsLockerServerErrorCode(int code) =>
+        code is >= -32099 and <= -32000;
+
+    private static bool IsValidErrorKind(string kind)
+    {
+        if (kind.Length is < 1 or > 64
+            || kind[0] is < 'a' or > 'z')
+        {
+            return false;
+        }
+        foreach (var value in kind.AsSpan(1))
+        {
+            if (value is not (>= 'a' and <= 'z')
+                && value is not (>= '0' and <= '9')
+                && value != '_')
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static bool IsValidErrorMessage(string message)
+    {
+        if (message.Length == 0)
+        {
+            return false;
+        }
+        var count = 0;
+        foreach (var value in message.EnumerateRunes())
+        {
+            if (++count > 512
+                || value.Value <= 0x1f
+                || value.Value is >= 0x7f and <= 0x9f)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static bool IsValidServerRequestId(string requestId)
+    {
+        if (requestId.Length is < 16 or > 128)
+        {
+            return false;
+        }
+        foreach (var value in requestId)
+        {
+            if (value is not (>= 'A' and <= 'Z')
+                && value is not (>= 'a' and <= 'z')
+                && value is not (>= '0' and <= '9')
+                && value is not ('_' or '-'))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
 
     private static JToken Require(JObject value, string name)
     {

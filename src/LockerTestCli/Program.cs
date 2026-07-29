@@ -27,14 +27,14 @@ var request = JObject.Parse(requestText);
 var id = request["id"]!;
 var method = request["method"]?.Value<string>() ?? string.Empty;
 var parameters = (JObject?)request["params"] ?? new JObject();
+var temporaryDirectory =
+    System.Environment.GetEnvironmentVariable("TMP") ?? string.Empty;
+var fixtureMode = Path.GetFileName(
+    temporaryDirectory
+        .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
 
 if (method == "system.capabilities")
 {
-    var temporaryDirectory =
-        System.Environment.GetEnvironmentVariable("TMP") ?? string.Empty;
-    var fixtureMode = Path.GetFileName(
-        temporaryDirectory
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
     if (string.Equals(
         fixtureMode,
         "locker-test-count-capabilities",
@@ -77,26 +77,46 @@ if (method == "system.capabilities")
         methods.Add("system.capabilities");
     }
 
+    var capabilityData = new JObject
+    {
+        ["protocol"] = new JObject
+        {
+            ["name"] = "locker.sdk",
+            ["min_version"] = 1,
+            ["max_version"] = 1,
+            ["transport"] = "json-rpc-2.0-stdio",
+        },
+        ["cli"] = new JObject { ["version"] = "test" },
+        ["methods"] = methods,
+        ["limits"] = new JObject
+        {
+            ["max_request_bytes"] = 20 * 1024 * 1024,
+            ["max_response_bytes"] = 20 * 1024 * 1024,
+            ["max_json_depth"] = 256,
+        },
+    };
+    if (!string.Equals(
+        fixtureMode,
+        "locker-test-legacy-error-contract",
+        StringComparison.Ordinal))
+    {
+        capabilityData["error_contracts"] = new JArray(
+            string.Equals(
+                fixtureMode,
+                "locker-test-unknown-error-contract",
+                StringComparison.Ordinal)
+                ? "future-v2"
+                : string.Equals(
+                    fixtureMode,
+                    "locker-test-invalid-error-contract",
+                    StringComparison.Ordinal)
+                    ? "Invalid_Contract"
+                    : "typed-v1");
+    }
+
     WriteSuccess(
         id,
-        new JObject
-        {
-            ["protocol"] = new JObject
-            {
-                ["name"] = "locker.sdk",
-                ["min_version"] = 1,
-                ["max_version"] = 1,
-                ["transport"] = "json-rpc-2.0-stdio",
-            },
-            ["cli"] = new JObject { ["version"] = "test" },
-            ["methods"] = methods,
-            ["limits"] = new JObject
-            {
-                ["max_request_bytes"] = 20 * 1024 * 1024,
-                ["max_response_bytes"] = 20 * 1024 * 1024,
-                ["max_json_depth"] = 256,
-            },
-        },
+        capabilityData,
         fixtureMode == "locker-test-capability-version-mismatch"
             ? "different-cli"
             : "test");
@@ -113,6 +133,21 @@ if (context?["protocol_version"]?.Value<int>() != 1
     || client?["version"]?.Value<string>() != "1.0.0")
 {
     WriteError(id, -32602, "invalid_params", "Invalid method parameters");
+    return 0;
+}
+var typedErrorsAdvertised = !string.Equals(
+        fixtureMode,
+        "locker-test-legacy-error-contract",
+        StringComparison.Ordinal)
+    && !string.Equals(
+        fixtureMode,
+        "locker-test-unknown-error-contract",
+        StringComparison.Ordinal);
+if ((typedErrorsAdvertised
+        && context?["error_contract"]?.Value<string>() != "typed-v1")
+    || (!typedErrorsAdvertised && context?["error_contract"] is not null))
+{
+    WriteError(id, -32602, "invalid_params", "Invalid error contract");
     return 0;
 }
 

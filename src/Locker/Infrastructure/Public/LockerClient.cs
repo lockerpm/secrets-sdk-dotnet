@@ -57,6 +57,17 @@ public sealed class LockerClient : IDisposable
                     throw new ProtocolError(
                         "Locker CLI does not advertise the requested SDK operation.");
                 }
+                var context = parameters["context"] as JObject
+                    ?? throw new ProtocolError(
+                        "Locker SDK operation context is unavailable.");
+                if (state.TypedErrorContract)
+                {
+                    context["error_contract"] = "typed-v1";
+                }
+                else
+                {
+                    context.Remove("error_contract");
+                }
 
                 try
                 {
@@ -150,6 +161,7 @@ public sealed class LockerClient : IDisposable
                 capabilities.MaxRequestBytes,
                 capabilities.MaxResponseBytes,
                 capabilities.MaxJsonDepth,
+                capabilities.ErrorContracts.Contains("typed-v1"),
                 result.BinaryIdentity,
                 capabilities.CliVersion);
             Volatile.Write(ref negotiatedState, nextState);
@@ -186,6 +198,7 @@ public sealed class LockerClient : IDisposable
         int MaxRequestBytes,
         int MaxResponseBytes,
         int MaxJsonDepth,
+        bool TypedErrorContract,
         CliBinaryIdentity BinaryIdentity,
         string CliVersion);
 }

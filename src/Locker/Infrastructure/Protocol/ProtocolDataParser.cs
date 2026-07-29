@@ -5,6 +5,7 @@ namespace Locker;
 internal sealed record ParsedCapabilities(
     string CliVersion,
     IReadOnlySet<string> Methods,
+    IReadOnlySet<string> ErrorContracts,
     int MaxRequestBytes,
     int MaxResponseBytes,
     int MaxJsonDepth);
@@ -58,13 +59,63 @@ internal static class ProtocolDataParser
                 throw new ProtocolError("Locker CLI capabilities contains an invalid or duplicate method.");
             }
         }
+        var errorContracts = new HashSet<string>(StringComparer.Ordinal);
+        if (root.TryGetValue(
+            "error_contracts",
+            StringComparison.Ordinal,
+            out var contractsToken))
+        {
+            if (contractsToken is not JArray contractsArray)
+            {
+                throw new ProtocolError(
+                    "Locker CLI capabilities error contracts field has the wrong type.");
+            }
+            if (contractsArray.Count > 8)
+            {
+                throw new ProtocolError(
+                    "Locker CLI capabilities advertises too many error contracts.");
+            }
+            foreach (var contractToken in contractsArray)
+            {
+                var contract = contractToken.Type == JTokenType.String
+                    ? (string?)contractToken
+                    : null;
+                if (contract is null
+                    || !IsValidErrorContract(contract)
+                    || !errorContracts.Add(contract))
+                {
+                    throw new ProtocolError(
+                        "Locker CLI capabilities contains an invalid or duplicate error contract.");
+                }
+            }
+        }
 
         return new ParsedCapabilities(
             cliVersion,
             methods,
+            errorContracts,
             checked((int)Math.Min(maxRequest, LockerClientOptions.ProtocolRequestLimitBytes)),
             checked((int)Math.Min(maxResponse, LockerClientOptions.ProtocolResponseLimitBytes)),
             checked((int)Math.Min(maxJsonDepth, LockerClientOptions.ProtocolJsonDepthLimit)));
+    }
+
+    private static bool IsValidErrorContract(string contract)
+    {
+        if (contract.Length is < 1 or > 32
+            || contract[0] is < 'a' or > 'z')
+        {
+            return false;
+        }
+        foreach (var value in contract.AsSpan(1))
+        {
+            if (value is not (>= 'a' and <= 'z')
+                && value is not (>= '0' and <= '9')
+                && value != '-')
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     internal static Secret ParseSecret(JToken data)

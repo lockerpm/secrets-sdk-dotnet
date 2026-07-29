@@ -29,6 +29,8 @@ public class LockerError : Exception
 
     public string? RequestId { get; }
 
+    public string? ServerRequestId { get; internal set; }
+
     public string? Kind { get; }
 
     public bool? Retryable { get; }
@@ -119,15 +121,24 @@ public class PermissionDeniedError : LockerError
 
 public class RateLimitError : LockerError
 {
-    internal RateLimitError(string message, int code, string requestId, string kind, bool retryable)
+    internal RateLimitError(
+        string message,
+        int code,
+        string requestId,
+        string kind,
+        bool retryable,
+        int? retryAfterSeconds = null)
         : base(message, code, requestId, kind, retryable)
     {
+        RetryAfterSeconds = retryAfterSeconds;
     }
 
     public RateLimitError(string message)
         : base(message)
     {
     }
+
+    public int? RetryAfterSeconds { get; }
 }
 
 public class ResourceNotFoundError : LockerError
@@ -138,6 +149,125 @@ public class ResourceNotFoundError : LockerError
     }
 
     public ResourceNotFoundError(string message)
+        : base(message)
+    {
+    }
+}
+
+/// <summary>The operation conflicts with the current Locker resource state.</summary>
+public class ConflictError : APIError
+{
+    internal ConflictError(string message, int code, string requestId, string kind, bool retryable)
+        : base(message, code, requestId, kind, retryable)
+    {
+    }
+
+    public ConflictError(string message)
+        : base(message)
+    {
+    }
+}
+
+/// <summary>A create operation targeted a Locker resource that already exists.</summary>
+public sealed class AlreadyExistsError : ConflictError
+{
+    internal AlreadyExistsError(
+        string message,
+        int code,
+        string requestId,
+        string kind,
+        bool retryable)
+        : base(message, code, requestId, kind, retryable)
+    {
+    }
+
+    public AlreadyExistsError(string message)
+        : base(message)
+    {
+    }
+}
+
+/// <summary>Locker rejected semantically invalid operation input.</summary>
+public sealed class ValidationError : APIError
+{
+    internal ValidationError(string message, int code, string requestId, string kind, bool retryable)
+        : base(message, code, requestId, kind, retryable)
+    {
+    }
+
+    public ValidationError(string message)
+        : base(message)
+    {
+    }
+}
+
+/// <summary>An older Locker CLI rejected a request without a more precise class.</summary>
+public sealed class RequestRejectedError : APIError
+{
+    internal RequestRejectedError(
+        string message,
+        int code,
+        string requestId,
+        string kind,
+        bool retryable)
+        : base(message, code, requestId, kind, retryable)
+    {
+    }
+
+    public RequestRejectedError(string message)
+        : base(message)
+    {
+    }
+
+}
+
+/// <summary>The operation result exceeded the negotiated protocol response limit.</summary>
+public sealed class ResponseTooLargeError : APIError
+{
+    internal ResponseTooLargeError(
+        string message,
+        int code,
+        string requestId,
+        string kind,
+        bool retryable)
+        : base(message, code, requestId, kind, retryable)
+    {
+    }
+
+    public ResponseTooLargeError(string message)
+        : base(message)
+    {
+    }
+}
+
+/// <summary>The Locker operation was cancelled before a result was available.</summary>
+public sealed class OperationCancelledError : APIError
+{
+    internal OperationCancelledError(
+        string message,
+        int code,
+        string requestId,
+        string kind,
+        bool retryable)
+        : base(message, code, requestId, kind, retryable)
+    {
+    }
+
+    public OperationCancelledError(string message)
+        : base(message)
+    {
+    }
+}
+
+/// <summary>Locker rejected a response or artifact that failed integrity validation.</summary>
+public sealed class IntegrityError : APIError
+{
+    internal IntegrityError(string message, int code, string requestId, string kind, bool retryable)
+        : base(message, code, requestId, kind, retryable)
+    {
+    }
+
+    public IntegrityError(string message)
         : base(message)
     {
     }

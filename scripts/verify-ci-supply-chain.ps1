@@ -77,6 +77,9 @@ if ($pipeline -match "(?i)\b(?:dotnet-install|choco\s+install|winget\s+install|I
 foreach ($required in @(
     "--locked-mode",
     "auto_cancel:",
+    'CI_PIPELINE_SOURCE == "merge_request_event"',
+    'CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH',
+    "- when: never",
     "win01",
     "NUGET_PACKAGES",
     "resource_group: lockersm-nuget",
@@ -90,6 +93,12 @@ foreach ($required in @(
     if (-not $pipeline.Contains($required)) {
         throw "CI supply-chain contract is missing: $required"
     }
+}
+if (
+    $pipeline.Contains("CI_OPEN_MERGE_REQUESTS") -or
+    $pipeline.Contains("- if: '`$CI_COMMIT_BRANCH'")
+) {
+    throw "plain feature-branch pushes must not create pipelines"
 }
 $resourceGroups = [Text.RegularExpressions.Regex]::Matches(
     $pipeline,
