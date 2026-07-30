@@ -34,6 +34,8 @@
 - Advertise the package SemVer in protocol context metadata and enforce
   consistency between `VERSION`, the project package version, and runtime
   metadata.
+- Run validation and release jobs in the official SDK 8.0.423 Linux image
+  pinned by digest instead of depending on a host-installed Windows SDK.
 
 All notable changes to this project will be documented in this file.
 
