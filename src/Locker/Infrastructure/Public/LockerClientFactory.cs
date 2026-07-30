@@ -21,15 +21,9 @@ public static class LockerClientFactory
             System.Environment.GetEnvironmentVariable("LOCKER_ACCESS_KEY_SECRET"),
             System.Environment.GetEnvironmentVariable("ACCESS_KEY_SECRET"));
 
-        if (accessKeyId is null || secretAccessKey is null)
-        {
-            throw new InvalidOperationException(
-                $"Set {AccessKeyIdEnvironmentVariable} and {SecretAccessKeyEnvironmentVariable}.");
-        }
-
         return new LockerClient(new LockerClientOptions(
-            accessKeyId,
-            secretAccessKey,
+            accessKeyId ?? string.Empty,
+            secretAccessKey ?? string.Empty,
             cliPath,
             apiBase,
             headers,

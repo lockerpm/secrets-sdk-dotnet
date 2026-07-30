@@ -87,17 +87,33 @@ public sealed class ConfigurationTests
             StringComparer.Ordinal);
         try
         {
-            System.Environment.SetEnvironmentVariable("LOCKER_ACCESS_KEY_ID", "canonical-access");
-            System.Environment.SetEnvironmentVariable("LOCKER_SECRET_ACCESS_KEY", "canonical-secret");
-            System.Environment.SetEnvironmentVariable("ACCESS_KEY_ID", "legacy-access");
-            System.Environment.SetEnvironmentVariable("SECRET_ACCESS_KEY", "legacy-secret");
-            System.Environment.SetEnvironmentVariable("LOCKER_ACCESS_KEY_SECRET", "older-secret");
-            System.Environment.SetEnvironmentVariable("ACCESS_KEY_SECRET", "oldest-secret");
+            System.Environment.SetEnvironmentVariable(
+                "LOCKER_ACCESS_KEY_ID",
+                TestCredentials.AccessKeyId);
+            System.Environment.SetEnvironmentVariable(
+                "LOCKER_SECRET_ACCESS_KEY",
+                TestCredentials.SecretAccessKey);
+            System.Environment.SetEnvironmentVariable(
+                "ACCESS_KEY_ID",
+                "10000000-0000-4000-8000-000000000001");
+            System.Environment.SetEnvironmentVariable(
+                "SECRET_ACCESS_KEY",
+                "bGVnYWN5LXNlY3JldA==");
+            System.Environment.SetEnvironmentVariable(
+                "LOCKER_ACCESS_KEY_SECRET",
+                "b2xkZXItc2VjcmV0");
+            System.Environment.SetEnvironmentVariable(
+                "ACCESS_KEY_SECRET",
+                "b2xkZXN0LXNlY3JldA==");
 
             using var client = LockerClientFactory.FromEnvironment(cliPath: "locker");
 
-            Assert.Equal("canonical-access", client.Options.AccessKeyId);
-            Assert.Equal("canonical-secret", client.Options.SecretAccessKey);
+            Assert.Equal(
+                TestCredentials.AccessKeyId,
+                client.Options.AccessKeyId);
+            Assert.Equal(
+                TestCredentials.SecretAccessKey,
+                client.Options.SecretAccessKey);
         }
         finally
         {
@@ -130,15 +146,70 @@ public sealed class ConfigurationTests
             {
                 System.Environment.SetEnvironmentVariable(name, null);
             }
-            System.Environment.SetEnvironmentVariable("ACCESS_KEY_ID", "legacy-access");
+            System.Environment.SetEnvironmentVariable(
+                "ACCESS_KEY_ID",
+                "10000000-0000-4000-8000-000000000001");
             System.Environment.SetEnvironmentVariable(
                 "LOCKER_ACCESS_KEY_SECRET",
-                "legacy-secret");
+                "bGVnYWN5LXNlY3JldA==");
 
             using var client = LockerClientFactory.FromEnvironment(cliPath: "locker");
 
-            Assert.Equal("legacy-access", client.Options.AccessKeyId);
-            Assert.Equal("legacy-secret", client.Options.SecretAccessKey);
+            Assert.Equal(
+                "10000000-0000-4000-8000-000000000001",
+                client.Options.AccessKeyId);
+            Assert.Equal(
+                "bGVnYWN5LXNlY3JldA==",
+                client.Options.SecretAccessKey);
+        }
+        finally
+        {
+            foreach (var pair in originals)
+            {
+                System.Environment.SetEnvironmentVariable(pair.Key, pair.Value);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task MissingEnvironmentCredentialsFailBeforeCliResolution()
+    {
+        var names = new[]
+        {
+            "LOCKER_ACCESS_KEY_ID",
+            "LOCKER_SECRET_ACCESS_KEY",
+            "ACCESS_KEY_ID",
+            "SECRET_ACCESS_KEY",
+            "LOCKER_ACCESS_KEY_SECRET",
+            "ACCESS_KEY_SECRET",
+        };
+        var originals = names.ToDictionary(
+            name => name,
+            System.Environment.GetEnvironmentVariable,
+            StringComparer.Ordinal);
+        try
+        {
+            foreach (var name in names)
+            {
+                System.Environment.SetEnvironmentVariable(name, null);
+            }
+
+            using var client = LockerClientFactory.FromEnvironment(
+                cliPath: Path.GetFullPath(
+                    Path.Combine(
+                        Path.GetTempPath(),
+                        $"locker-does-not-exist-{Guid.NewGuid():N}")));
+
+            var error = await Assert.ThrowsAsync<AuthenticationError>(
+                () => client.EnsureCapabilitiesAsync());
+
+            Assert.Equal(-32001, error.Code);
+            Assert.Equal("missing_credentials", error.Kind);
+            Assert.Equal(
+                "access key ID and secret access key are required",
+                error.Message);
+            Assert.False(error.Retryable);
+            Assert.Null(error.RequestId);
         }
         finally
         {
@@ -154,8 +225,9 @@ public sealed class ConfigurationTests
     {
         var values = new Dictionary<string, string?>
         {
-            ["LOCKER_ACCESS_KEY_ID"] = "test-access",
-            ["LOCKER_SECRET_ACCESS_KEY"] = "test-secret",
+            ["LOCKER_ACCESS_KEY_ID"] = TestCredentials.AccessKeyId,
+            ["LOCKER_SECRET_ACCESS_KEY"] =
+                TestCredentials.SecretAccessKey,
             ["LOCKER_CLI_PATH"] = FakeCliPath,
         };
         var originals = values.Keys.ToDictionary(

@@ -25,8 +25,8 @@ public sealed class LockerClientOptions
         bool forceRefresh = false,
         int maxAgeSeconds = 120)
     {
-        AccessKeyId = RequireValue(accessKeyId, nameof(accessKeyId));
-        SecretAccessKey = RequireValue(secretAccessKey, nameof(secretAccessKey));
+        AccessKeyId = accessKeyId ?? string.Empty;
+        SecretAccessKey = secretAccessKey ?? string.Empty;
         CliPath = string.IsNullOrWhiteSpace(cliPath) ? null : cliPath;
         ApiBase = string.IsNullOrWhiteSpace(apiBase) ? DefaultApiBase : apiBase;
         Headers = new ReadOnlyDictionary<string, string>(
@@ -105,15 +105,4 @@ public sealed class LockerClientOptions
     public bool ForceRefresh { get; }
     public int MaxAgeSeconds { get; }
 
-    private static string RequireValue(string value, string parameterName)
-    {
-        if (string.IsNullOrWhiteSpace(value) || value.Length > ProtocolNameLengthLimit)
-        {
-            throw new ArgumentException(
-                $"A non-empty credential of at most {ProtocolNameLengthLimit} characters is required.",
-                parameterName);
-        }
-
-        return value;
-    }
 }

@@ -8,6 +8,47 @@ namespace LockerTests;
 
 public sealed class ProtocolClientTests
 {
+    public static TheoryData<string, string, string, string>
+        InvalidCredentialCases => new()
+        {
+            {
+                string.Empty,
+                TestCredentials.SecretAccessKey,
+                "missing_credentials",
+                "access key ID and secret access key are required"
+            },
+            {
+                TestCredentials.AccessKeyId,
+                " \t ",
+                "missing_credentials",
+                "access key ID and secret access key are required"
+            },
+            {
+                "not-a-uuid",
+                TestCredentials.SecretAccessKey,
+                "invalid_access_key_id",
+                "access key ID must be a UUIDv4"
+            },
+            {
+                "00000000-0000-1000-8000-000000000001",
+                TestCredentials.SecretAccessKey,
+                "invalid_access_key_id",
+                "access key ID must be a UUIDv4"
+            },
+            {
+                TestCredentials.AccessKeyId,
+                "not canonical base64",
+                "malformed_secret_access_key",
+                "secret access key must be non-empty canonical base64"
+            },
+            {
+                TestCredentials.AccessKeyId,
+                "YQ",
+                "malformed_secret_access_key",
+                "secret access key must be non-empty canonical base64"
+            },
+        };
+
     [Fact]
     public async Task SupportsAllTenVaultMethods()
     {
@@ -91,6 +132,74 @@ public sealed class ProtocolClientTests
     }
 
     [Theory]
+    [MemberData(nameof(InvalidCredentialCases))]
+    public async Task RejectsInvalidCredentialsBeforeResolvingCli(
+        string accessKeyId,
+        string secretAccessKey,
+        string expectedKind,
+        string expectedMessage)
+    {
+        var resolverCalls = 0;
+        using var transport = new ProtocolTransport(
+            new LockerClientOptions(
+                accessKeyId,
+                secretAccessKey),
+            _ =>
+            {
+                Interlocked.Increment(ref resolverCalls);
+                return Task.FromResult(FakeCliPath);
+            });
+
+        var error = await Assert.ThrowsAsync<AuthenticationError>(
+            () => transport.CallAsync(
+                "system.capabilities",
+                new JObject(),
+                CancellationToken.None));
+
+        Assert.Equal(-32001, error.Code);
+        Assert.Equal(expectedKind, error.Kind);
+        Assert.Equal(expectedMessage, error.Message);
+        Assert.False(error.Retryable);
+        Assert.Null(error.RequestId);
+        Assert.Equal(0, resolverCalls);
+        if (!string.IsNullOrWhiteSpace(accessKeyId))
+        {
+            Assert.DoesNotContain(
+                accessKeyId,
+                error.ToString(),
+                StringComparison.Ordinal);
+        }
+        if (!string.IsNullOrWhiteSpace(secretAccessKey))
+        {
+            Assert.DoesNotContain(
+                secretAccessKey,
+                error.ToString(),
+                StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void TrimsCredentialsOnceBeforeCreatingProtocolContext()
+    {
+        var options = new LockerClientOptions(
+            $" \t{TestCredentials.AccessKeyId}\r\n",
+            $"\r\n{TestCredentials.SecretAccessKey} \t");
+        using var transport = new ProtocolTransport(
+            options,
+            _ => throw new InvalidOperationException(
+                "Credential normalization must not resolve the CLI."));
+
+        var credentials = (JObject)transport.CreateContext()["credentials"]!;
+
+        Assert.Equal(
+            TestCredentials.AccessKeyId,
+            credentials["access_key_id"]!.Value<string>());
+        Assert.Equal(
+            TestCredentials.SecretAccessKey,
+            credentials["secret_access_key"]!.Value<string>());
+    }
+
+    [Theory]
     [InlineData("malformed-response")]
     [InlineData("trailing-response")]
     [InlineData("duplicate-response")]
@@ -103,8 +212,14 @@ public sealed class ProtocolClientTests
         var error = await Assert.ThrowsAsync<ProtocolError>(
             () => CreateClient().Secrets.GetAsync(key));
         Assert.DoesNotContain("secret-value", error.ToString(), StringComparison.Ordinal);
-        Assert.DoesNotContain("test-access", error.ToString(), StringComparison.Ordinal);
-        Assert.DoesNotContain("test-secret", error.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            TestCredentials.AccessKeyId,
+            error.ToString(),
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            TestCredentials.SecretAccessKey,
+            error.ToString(),
+            StringComparison.Ordinal);
         Assert.DoesNotContain("\"jsonrpc\"", error.ToString(), StringComparison.Ordinal);
     }
 
@@ -226,8 +341,8 @@ public sealed class ProtocolClientTests
             }
 
             var options = new LockerClientOptions(
-                "test-access",
-                "test-secret");
+                TestCredentials.AccessKeyId,
+                TestCredentials.SecretAccessKey);
             using var transport = new ProtocolTransport(
                 options,
                 VerifyManagedAsync);
@@ -874,8 +989,8 @@ public sealed class ProtocolClientTests
 
         var stderrClient = new LockerClient(
             new LockerClientOptions(
-                "test-access",
-                "test-secret",
+                TestCredentials.AccessKeyId,
+                TestCredentials.SecretAccessKey,
                 FakeCliPath,
                 maxStderrBytes: 1024));
         await Assert.ThrowsAsync<LockerResponseTooLargeError>(
@@ -1021,8 +1136,8 @@ public sealed class ProtocolClientTests
         TimeSpan? timeout = null,
         int maxStdoutBytes = LockerClientOptions.ProtocolRequestLimitBytes) =>
         new(
-            "test-access",
-            "test-secret",
+            TestCredentials.AccessKeyId,
+            TestCredentials.SecretAccessKey,
             cliPath,
             timeout: timeout,
             maxStdoutBytes: maxStdoutBytes);

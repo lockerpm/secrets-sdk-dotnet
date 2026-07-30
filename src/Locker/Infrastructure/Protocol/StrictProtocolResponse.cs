@@ -463,7 +463,18 @@ internal static class StrictProtocolResponse
             -32601 => "the requested Locker operation is not supported",
             -32602 => "the Locker request parameters are invalid",
             -32603 => "the Locker CLI encountered an internal protocol error",
-            -32001 => "authentication failed",
+            -32001 => kind switch
+            {
+                "missing_credentials" =>
+                    "access key ID and secret access key are required",
+                "invalid_access_key_id" =>
+                    "access key ID must be a UUIDv4",
+                "malformed_secret_access_key" =>
+                    "secret access key must be non-empty canonical base64",
+                "invalid_secret_access_key" =>
+                    "the secret access key does not match the access key ID",
+                _ => "authentication failed",
+            },
             -32003 => "you do not have permission to perform this operation",
             -32004 => kind switch
             {

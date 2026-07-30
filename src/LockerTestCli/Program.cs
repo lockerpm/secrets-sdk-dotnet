@@ -130,8 +130,10 @@ var context = (JObject?)parameters["context"];
 var credentials = (JObject?)context?["credentials"];
 var client = (JObject?)context?["client"];
 if (context?["protocol_version"]?.Value<int>() != 1
-    || credentials?["access_key_id"]?.Value<string>() != "test-access"
-    || credentials?["secret_access_key"]?.Value<string>() != "test-secret"
+    || credentials?["access_key_id"]?.Value<string>()
+        != "00000000-0000-4000-8000-000000000001"
+    || credentials?["secret_access_key"]?.Value<string>()
+        != "dGVzdC1vbmx5LWNyZWRlbnRpYWw="
     || client?["name"]?.Value<string>() != "locker-dotnet"
     || client?["version"]?.Value<string>() != expectedClientVersion)
 {

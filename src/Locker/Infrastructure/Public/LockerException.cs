@@ -95,7 +95,7 @@ public sealed class LockerResponseTooLargeError : CliRunError
 
 public class AuthenticationError : LockerError
 {
-    internal AuthenticationError(string message, int code, string requestId, string kind, bool retryable)
+    internal AuthenticationError(string message, int code, string? requestId, string kind, bool retryable)
         : base(message, code, requestId, kind, retryable)
     {
     }
