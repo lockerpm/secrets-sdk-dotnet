@@ -3,6 +3,10 @@ Set-StrictMode -Version Latest
 
 $repositoryRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $expectedSdk = "8.0.423"
+$expectedImage = (
+    "mcr.microsoft.com/dotnet/sdk:8.0.423-bookworm-slim@" +
+    "sha256:3c0edbfe1549dd93fb789dc96299a40df865ad7bffefcaf38e8c05940686d641"
+)
 $maximumInputBytes = 2MB
 
 function Read-BoundedText {
@@ -72,27 +76,34 @@ if (
 
 $pipeline = Read-BoundedText -Path (Join-Path $repositoryRoot ".gitlab-ci.yml")
 if ($pipeline -match "(?i)\b(?:dotnet-install|choco\s+install|winget\s+install|Invoke-WebRequest|curl|wget)\b") {
-    throw "CI must use the pre-provisioned exact SDK and must not download a mutable toolchain"
+    throw "CI must use the pinned SDK image and must not download a mutable toolchain"
 }
 foreach ($required in @(
-    "--locked-mode",
     "auto_cancel:",
     'CI_PIPELINE_SOURCE == "merge_request_event"',
     'CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH',
     "- when: never",
-    "win01",
+    $expectedImage,
+    "cs_newgen_docker",
     "NUGET_PACKAGES",
     "resource_group: lockersm-nuget",
-    "verify-ci-supply-chain.ps1",
     "LOCKER_CLI_RELEASE_PUBLIC_KEY",
-    "prepare-release.ps1",
-    "wait-release-predecessor.ps1",
-    "publish-nuget.ps1",
-    "create-gitlab-release.ps1 -SelfTest"
+    "run-ci-validation.ps1",
+    "run-ci-release.ps1"
 )) {
     if (-not $pipeline.Contains($required)) {
         throw "CI supply-chain contract is missing: $required"
     }
+}
+$imageMatches = [Text.RegularExpressions.Regex]::Matches(
+    $pipeline,
+    '(?m)^\s{2}image:\s*"([^"]+)"\s*$'
+)
+if (
+    $imageMatches.Count -ne 1 -or
+    $imageMatches[0].Groups[1].Value -cne $expectedImage
+) {
+    throw "CI must use exactly one reviewed digest-pinned .NET SDK image"
 }
 if (
     $pipeline.Contains("CI_OPEN_MERGE_REQUESTS") -or
@@ -112,6 +123,46 @@ if (
 }
 if ($pipeline.Contains("when: manual")) {
     throw "release ordering must remain fully automatic"
+}
+
+$validationRunner = Read-BoundedText -Path (
+    Join-Path $repositoryRoot "scripts/run-ci-validation.ps1"
+)
+foreach ($required in @(
+    "verify-ci-supply-chain.ps1",
+    "prepare-release.ps1",
+    "wait-release-predecessor.ps1",
+    "publish-nuget.ps1",
+    "create-gitlab-release.ps1",
+    "--locked-mode",
+    "--verify-no-changes",
+    "--vulnerable",
+    "assert-no-vulnerable-packages.ps1",
+    "--no-build",
+    "--no-restore"
+)) {
+    if (-not $validationRunner.Contains($required)) {
+        throw "CI validation runner is missing: $required"
+    }
+}
+
+$releaseRunner = Read-BoundedText -Path (
+    Join-Path $repositoryRoot "scripts/run-ci-release.ps1"
+)
+foreach ($required in @(
+    "verify-ci-supply-chain.ps1",
+    "prepare-release.ps1",
+    "wait-release-predecessor.ps1",
+    "verify-remote-tag.ps1",
+    "--locked-mode",
+    "-p:ContinuousIntegrationBuild=true",
+    "verify-release.ps1",
+    "publish-nuget.ps1",
+    "create-gitlab-release.ps1"
+)) {
+    if (-not $releaseRunner.Contains($required)) {
+        throw "CI release runner is missing: $required"
+    }
 }
 
 $gitLabReleaseScript = Read-BoundedText -Path (

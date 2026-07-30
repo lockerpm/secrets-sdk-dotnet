@@ -324,8 +324,9 @@ Builds require the exact stable .NET SDK `8.0.423`; `global.json` disables
 roll-forward and prerelease SDK selection. CI uses a job-local NuGet package
 directory, restores every project in locked mode, validates every locked
 package content hash, and fails when NuGet reports a vulnerable direct or
-transitive package. The Windows runner must be provisioned ahead of time; jobs
-never download an SDK or install tools dynamically.
+transitive package. Jobs run on the `cs_newgen_docker` runner in Microsoft's
+official SDK 8.0.423 Bookworm image pinned by SHA-256 digest. They never
+download an SDK or install tools dynamically.
 
 Hermetic tests are the default and use a local fake protocol CLI:
 
@@ -349,12 +350,13 @@ fast-forward, rewritten-baseline, and mispointed-tag histories fail closed.
 Concurrent pipelines wait for the exact immediate-predecessor tag, so patch
 versions cannot be skipped. The `auto-release` job also uses the
 `lockersm-nuget` resource group to avoid multiple release jobs occupying the
-Windows runner while waiting. Set that resource group's process mode to
+Docker runner while waiting. Set that resource group's process mode to
 `oldest_first`; GitLab's default `unordered` mode serializes jobs without
 preserving release order. The predecessor-tag check remains an independent
 fail-closed ordering invariant.
 
-Provision the `win01` runner with the exact .NET SDK from `global.json`.
+Provide a protected GitLab Docker runner carrying the `cs_newgen_docker` tag;
+the pipeline itself selects the reviewed digest-pinned SDK image.
 Protect `main`, `v*`, and the `nuget` deployment environment, then configure
 GitLab so `main` accepts only merge commits with a successful pipeline. Reject
 `[ci skip]` and `[skip ci]` in protected-main commit messages with a push rule,
@@ -366,8 +368,8 @@ permanently incomplete. Configure these protected variables:
 - `NUGET_API_KEY`: a short-lived NuGet.org key scoped only to the
   `lockersm` package with `Push new package versions` permission. Rotate it
   before expiry. The pinned .NET 8.0.423 CLI still receives this key as a
-  child-process argument, so keep the Windows runner dedicated, access
-  restricted, and free of untrusted same-host processes.
+  child-process argument, so allow release jobs only on protected refs and
+  keep the runner and its job containers isolated from untrusted workloads.
 - `LOCKER_CLI_RELEASE_PUBLIC_KEY`: the canonical 43-character, unpadded
   base64url raw Ed25519 public key used by the CLI release channel.
 

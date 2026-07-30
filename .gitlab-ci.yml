@@ -16,8 +16,9 @@ workflow:
     - when: never
 
 default:
+  image: "mcr.microsoft.com/dotnet/sdk:8.0.423-bookworm-slim@sha256:3c0edbfe1549dd93fb789dc96299a40df865ad7bffefcaf38e8c05940686d641"
   tags:
-    - win01
+    - cs_newgen_docker
 
 # Protect main, v* tags, the nuget environment, NUGET_API_KEY, and the
 # independent single-line LOCKER_CLI_RELEASE_PUBLIC_KEY in GitLab settings.
@@ -29,24 +30,7 @@ validate:
     LOCKER_RUN_LIVE_TESTS: "0"
     NUGET_PACKAGES: "$CI_PROJECT_DIR/.nuget/packages"
   script:
-    - powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\verify-ci-supply-chain.ps1
-    - powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\prepare-release.ps1 -SelfTest
-    - powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\wait-release-predecessor.ps1 -SelfTest
-    - powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\publish-nuget.ps1 -SelfTest
-    - powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\create-gitlab-release.ps1 -SelfTest
-    - $requiredSdk = (Get-Content -LiteralPath global.json -Raw | ConvertFrom-Json).sdk.version
-    - $actualSdk = (& dotnet --version).Trim(); if ($LASTEXITCODE -ne 0 -or $actualSdk -ne $requiredSdk) { throw "required .NET SDK $requiredSdk, got $actualSdk" }
-    - dotnet --info
-    - dotnet restore src/Locker.sln --locked-mode
-    - dotnet restore tools/Locker.ReleaseVerifier/Locker.ReleaseVerifier.csproj --locked-mode
-    - dotnet format src/Locker.sln --verify-no-changes --no-restore
-    - dotnet format tools/Locker.ReleaseVerifier/Locker.ReleaseVerifier.csproj --verify-no-changes --no-restore
-    - dotnet build src/Locker.sln --configuration Release --no-restore
-    - dotnet test src/LockerTests/LockerTests.csproj --configuration Release --no-build --no-restore
-    - New-Item -ItemType Directory -Path artifacts -Force | Out-Null
-    - dotnet list src/Locker.sln package --vulnerable --include-transitive --format json --output-version 1 | Set-Content -LiteralPath artifacts/nuget-vulnerabilities.json -Encoding utf8
-    - powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\assert-no-vulnerable-packages.ps1 -ReportPath artifacts/nuget-vulnerabilities.json
-    - dotnet pack src/Locker/Locker.csproj --configuration Release --no-build --no-restore --output artifacts
+    - pwsh -NoProfile -NonInteractive -File ./scripts/run-ci-validation.ps1
   artifacts:
     expire_in: 7 days
     paths:
@@ -77,30 +61,7 @@ auto-release:
     name: nuget
     deployment_tier: production
   script:
-    - powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\verify-ci-supply-chain.ps1
-    - if ($env:CI_COMMIT_REF_PROTECTED -ne "true") { throw "default branch must be protected before release" }
-    - if ($env:CI_DEFAULT_BRANCH -ne "main") { throw "main must remain the GitLab default branch" }
-    - if ([string]::IsNullOrWhiteSpace($env:NUGET_API_KEY)) { throw "NUGET_API_KEY protected variable is missing" }
-    - if ([string]::IsNullOrWhiteSpace($env:LOCKER_CLI_RELEASE_PUBLIC_KEY)) { throw "LOCKER_CLI_RELEASE_PUBLIC_KEY protected independent variable is missing" }
-    - git fetch --force --tags origin
-    - powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\prepare-release.ps1 -Commit $env:CI_COMMIT_SHA -DotEnv release.env
-    - Get-Content -LiteralPath release.env | ForEach-Object { $parts = $_ -split "=", 2; if ($parts.Count -ne 2 -or $parts[0] -notmatch "^[A-Z0-9_]+$") { throw "invalid release dotenv" }; Set-Item -Path "Env:$($parts[0])" -Value $parts[1] }
-    - if ($env:LOCKER_PREDECESSOR_REQUIRED -eq "0") { powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\wait-release-predecessor.ps1 -Required 0 } elseif ($env:LOCKER_PREDECESSOR_REQUIRED -eq "1") { powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\wait-release-predecessor.ps1 -Required 1 -Tag $env:LOCKER_PREDECESSOR_TAG -Commit $env:LOCKER_PREDECESSOR_COMMIT } else { throw "invalid release predecessor requirement" }; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-    - powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\verify-remote-tag.ps1 -Tag $env:LOCKER_RELEASE_TAG -Commit $env:CI_COMMIT_SHA
-    - $requiredSdk = (Get-Content -LiteralPath global.json -Raw | ConvertFrom-Json).sdk.version
-    - $actualSdk = (& dotnet --version).Trim(); if ($LASTEXITCODE -ne 0 -or $actualSdk -ne $requiredSdk) { throw "required .NET SDK $requiredSdk, got $actualSdk" }
-    - dotnet restore src/Locker.sln --locked-mode
-    - dotnet restore tools/Locker.ReleaseVerifier/Locker.ReleaseVerifier.csproj --locked-mode
-    - dotnet build src/Locker.sln --configuration Release --no-restore -p:Version=$env:LOCKER_SDK_VERSION -p:PackageVersion=$env:LOCKER_SDK_VERSION -p:ContinuousIntegrationBuild=true
-    - dotnet test src/LockerTests/LockerTests.csproj --configuration Release --no-build --no-restore -p:Version=$env:LOCKER_SDK_VERSION -p:PackageVersion=$env:LOCKER_SDK_VERSION
-    - New-Item -ItemType Directory -Path release-dist -Force | Out-Null
-    - dotnet pack src/Locker/Locker.csproj --configuration Release --no-build --no-restore --output release-dist -p:Version=$env:LOCKER_SDK_VERSION -p:PackageVersion=$env:LOCKER_SDK_VERSION
-    - dotnet publish tools/Locker.ReleaseVerifier/Locker.ReleaseVerifier.csproj --configuration Release --no-restore --output release-dist/release-verifier
-    - $package = "release-dist/lockersm.$($env:LOCKER_SDK_VERSION).nupkg"
-    - $verifier = "release-dist/release-verifier/Locker.ReleaseVerifier.dll"
-    - powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Version $env:LOCKER_SDK_VERSION -Tag $env:LOCKER_RELEASE_TAG -PublicKey $env:LOCKER_CLI_RELEASE_PUBLIC_KEY -PackagePath $package -VerifierPath $verifier
-    - powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\publish-nuget.ps1 -Version $env:LOCKER_SDK_VERSION -PackagePath $package
-    - powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\create-gitlab-release.ps1 -Version $env:LOCKER_SDK_VERSION -Tag $env:LOCKER_RELEASE_TAG -Commit $env:CI_COMMIT_SHA -ReleasedAt $env:CI_COMMIT_TIMESTAMP -ReleaseTitle $env:CI_COMMIT_TITLE
+    - pwsh -NoProfile -NonInteractive -File ./scripts/run-ci-release.ps1
   artifacts:
     name: lockersm-dotnet-release-$CI_COMMIT_SHA
     when: always
