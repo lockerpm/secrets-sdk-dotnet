@@ -172,11 +172,9 @@ ambient `PATH`. Otherwise the SDK checks
 once per persisted six-hour interval. Importing the assembly and constructing
 a client do not perform network I/O.
 
-The source tree and package embed the reviewed production Ed25519 trust root,
-so default managed resolution is available without pinning a CLI version. A
-missing or malformed key still fails closed. The tagged-package release gate
-requires the embedded key to match the independent protected
-`LOCKER_CLI_RELEASE_PUBLIC_KEY` variable exactly.
+The package embeds the production Ed25519 trust root, so managed resolution is
+available without pinning a CLI version. A missing or malformed key fails
+closed.
 
 To force a signed latest check:
 
@@ -185,36 +183,16 @@ using var installer = new LockerCliInstaller();
 var path = await installer.InstallAsync();
 ```
 
-The update chain is signed latest metadata, a size/SHA-bound signed manifest,
-and an exact platform artifact with SHA-256 plus a raw detached Ed25519
-signature. Parsing rejects duplicate keys, floats, non-ASCII strings,
-non-canonical JSON/base64url, BOMs, trailing data, unknown fields, unsafe
-paths, rollback, and same-version equivocation. The manifest must contain
-exactly the five canonical `linux`, `darwin`, and `windows` amd64/arm64
-artifacts and protocol `locker.sdk` v1 over JSON-RPC stdio.
+Managed downloads are accepted only after the signed release metadata,
+manifest, binary digest, detached signature, and executable platform header
+all verify. Verified versions are stored privately and activated atomically.
+The selected managed executable is revalidated before use, and rollback,
+tampering, unsafe paths, and insecure cache ownership fail closed.
 
-Verified versions are immutable. A process lock protects concurrent updates;
-the current reference and check state are flushed and atomically replaced.
-The language-specific cache prevents cross-SDK state/lock collisions.
-Existing shared `~/.locker` and `~/.locker/sdk-cli` ancestors are never
-rewritten; links, unsafe ownership, or unauthorized mutation permissions are
-rejected before the private .NET root is used.
-Every cached binary is reverified from its signed manifest and detached
-signature before use. Only a transient network/transport failure may fall
-back to that fully verified cache; signature, schema, path, hash, size,
-header, rollback, or local-cache failures fail closed. `system.capabilities`
-is negotiated before the first vault operation.
-
-The transport cryptographically rebinds a managed executable to that signed
-manifest plus a streamed size/SHA-256/header check immediately before every
-subprocess spawn. The detached signature is verified when a generation is
-installed or first loaded into the process; subsequent same-generation
-rebinds use a bounded pooled buffer instead of retaining the binary in memory.
-File length, timestamps, and identity metadata only optimize capability cache
-invalidation; they are never a managed-binary trust decision. Same-size
-in-place tampering is rejected even when mtime is restored. Explicit absolute
-paths remain caller-owned and receive only the documented non-link
-regular-file/identity policy, not managed-channel signature validation.
+A temporary release-channel outage may reuse a previously verified compatible
+binary. TLS, signature, schema, hash, platform, rollback, and local-integrity
+failures never fall back to cache. Explicit absolute CLI paths remain
+caller-owned and are not treated as managed, signed artifacts.
 
 ## Process security
 
@@ -324,79 +302,12 @@ valid contracts remain compatible and are not sent. `ServerRequestId` is a
 separately validated upstream correlation ID. It never replaces the local
 JSON-RPC `RequestId` and is not included in default exception text.
 
-## Development
+## Versioning
 
-Builds require the exact stable .NET SDK `8.0.423`; `global.json` disables
-roll-forward and prerelease SDK selection. CI uses a job-local NuGet package
-directory, restores every project in locked mode, validates every locked
-package content hash, and fails when NuGet reports a vulnerable direct or
-transitive package. Jobs run on the `cs_newgen_docker` runner in Microsoft's
-official SDK 8.0.423 Bookworm image pinned by SHA-256 digest. They never
-download an SDK or install tools dynamically.
-
-Hermetic tests are the default and use a local fake protocol CLI:
-
-```shell
-pwsh -File scripts/verify-ci-supply-chain.ps1
-dotnet restore src/Locker.sln
-dotnet format src/Locker.sln --verify-no-changes
-dotnet test src/Locker.sln --configuration Release
-dotnet pack src/Locker/Locker.csproj --configuration Release --no-build
-```
-
-Live Locker credentials are never required by the default test suite. Any
-future live suite must be separately gated by `LOCKER_RUN_LIVE_TESTS=1`.
-
-## Automatic releases
-
-Every accepted two-parent merge into protected `main` releases exactly one
-patch version, beginning at `2.0.0`. The version is derived from the reviewed
-first-parent history in `scripts/release-policy.json`; direct, squash, rebase,
-fast-forward, rewritten-baseline, and mispointed-tag histories fail closed.
-Concurrent pipelines wait for the exact immediate-predecessor tag, so patch
-versions cannot be skipped. The `auto-release` job also uses the
-`lockersm-nuget` resource group to avoid multiple release jobs occupying the
-Docker runner while waiting. Set that resource group's process mode to
-`oldest_first`; GitLab's default `unordered` mode serializes jobs without
-preserving release order. The predecessor-tag check remains an independent
-fail-closed ordering invariant.
-
-Provide a protected GitLab Docker runner carrying the `cs_newgen_docker` tag;
-the pipeline itself selects the reviewed digest-pinned SDK image.
-Protect `main`, `v*`, and the `nuget` deployment environment, then configure
-GitLab so `main` accepts only merge commits with a successful pipeline. Reject
-`[ci skip]` and `[skip ci]` in protected-main commit messages with a push rule,
-and use a pipeline execution policy to prevent the `ci.skip` and
-`ci.no_pipeline` push options where the installed GitLab tier supports it.
-Otherwise one skipped merge can leave the immediate-predecessor release chain
-permanently incomplete. Configure these protected variables:
-
-- `NUGET_API_KEY`: a short-lived NuGet.org key scoped only to the
-  `lockersm` package with `Push new package versions` permission. Rotate it
-  before expiry. The pinned .NET 8.0.423 CLI still receives this key as a
-  child-process argument, so allow release jobs only on protected refs and
-  keep the runner and its job containers isolated from untrusted workloads.
-- `LOCKER_CLI_RELEASE_PUBLIC_KEY`: the canonical 43-character, unpadded
-  base64url raw Ed25519 public key used by the CLI release channel.
-
-After the first pipeline creates the resource group, a Maintainer must set its
-ordering once:
-
-```shell
-curl --request PUT \
-  --header "PRIVATE-TOKEN: <maintainer-token>" \
-  --data "process_mode=oldest_first" \
-  "https://git.cystack.org/api/v4/projects/<project-id>/resource_groups/lockersm-nuget"
-```
-
-The release job builds and tests the derived version, validates the exact
-package payload and embedded trust root, publishes or reconciles NuGet.org,
-verifies its repository signature, and only then creates or reconciles the
-GitLab tag and Release. Bounded job retries are safe: immutable executable and
-metadata payloads must match, while NuGet's regenerated OPC relationship and
-core-properties identifiers are parsed and compared semantically.
-
-Report security issues privately to <contact@locker.io>.
+The SDK follows Semantic Versioning. NuGet packages use
+`MAJOR.MINOR.PATCH`; matching source releases use
+`vMAJOR.MINOR.PATCH`. See the release notes when upgrading across a major
+version.
 
 ## Migration, troubleshooting, and support
 
@@ -425,6 +336,7 @@ canonical `LOCKER_*` pair.
 - Unexpected stale reads: use `ForceRefresh`; never loosen cache permissions.
 
 Product help is available at [support.locker.io](https://support.locker.io).
+Report security issues privately to <contact@locker.io>.
 
 ## License
 
