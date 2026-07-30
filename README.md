@@ -161,16 +161,16 @@ Resolution order is:
 
 1. `LockerClientOptions.CliPath`
 2. `LOCKER_CLI_PATH`
-3. the latest fully verified managed release below
+3. the latest fully verified release from the
+   [signed release channel](https://locker.io/secrets/download), stored below
    `~/.locker/sdk-cli/dotnet/releases/2.x.y/`
 
 An explicit option or environment path is caller-owned and bypasses all
 managed update checks. It must identify an absolute regular non-link file;
 bare names and relative paths are rejected, and no resolution branch consults
-ambient `PATH`. Otherwise the SDK checks
-`https://files.locker.io/cli/releases/latest.json` on first CLI use and then at most
-once per persisted six-hour interval. Importing the assembly and constructing
-a client do not perform network I/O.
+ambient `PATH`. Otherwise the SDK checks for a compatible managed release on
+first CLI use and then at most once per persisted six-hour interval. Importing
+the assembly and constructing a client do not perform network I/O.
 
 The package embeds the production Ed25519 trust root, so managed resolution is
 available without pinning a CLI version. A missing or malformed key fails
@@ -326,8 +326,9 @@ canonical `LOCKER_*` pair.
 - `unauthorized`: the server rejected a well-formed pair; verify its active
   status and project/environment scope.
 - Permission errors: verify the credential's project/environment scope.
-- `LockerCliDistributionUnavailableError`: check system time, HTTPS access to
-  `files.locker.io`, and private ownership below
+- `LockerCliDistributionUnavailableError`: check system time, access to the
+  [Locker Secrets download service](https://locker.io/secrets/download), and
+  private ownership below
   `~/.locker/sdk-cli/dotnet`.
 - `CliRunError` / `LockerTimeoutError`: check the absolute path, timeout,
   cancellation source, and host process policy.
@@ -336,7 +337,8 @@ canonical `LOCKER_*` pair.
 - Unexpected stale reads: use `ForceRefresh`; never loosen cache permissions.
 
 Product help is available at [support.locker.io](https://support.locker.io).
-Report security issues privately to <contact@locker.io>.
+Report security issues through the
+[Locker Bug Bounty program](https://whitehub.net/programs/locker).
 
 ## License
 
