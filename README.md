@@ -26,13 +26,19 @@ deployments should use only the canonical `LOCKER_*` names.
 
 | Environment variable | Purpose |
 | --- | --- |
-| `LOCKER_ACCESS_KEY_ID` | Project access key ID |
-| `LOCKER_SECRET_ACCESS_KEY` | Project secret access key |
+| `LOCKER_ACCESS_KEY_ID` | Project access key ID in UUIDv4 form |
+| `LOCKER_SECRET_ACCESS_KEY` | Non-empty canonical standard-base64 project secret |
 | `LOCKER_CLI_PATH` | Absolute caller-owned CLI path |
 
 Pass a cloud or self-hosted API base explicitly to
 `LockerClientOptions`/`LockerClientFactory.FromEnvironment`; .NET does not
 implicitly read an API-base environment variable.
+
+The SDK snapshots the selected pair once, removes outer whitespace, and
+validates both values before resolving, downloading, negotiating with, or
+starting the CLI. Invalid local input therefore cannot cause network or
+process activity and is reported as a non-retryable `AuthenticationError`
+with code `-32001`.
 
 ## Basic use
 
@@ -289,7 +295,7 @@ catch (LockerError error)
 | `-32602` | `ProtocolError` | `invalid_params` |
 | `-32603` | `ProtocolError` | `internal_protocol_error` |
 | `-32000` | `APIError` and legacy subtypes | `operation_error`, `request_rejected`, `response_too_large`, `cancelled` |
-| `-32001` | `AuthenticationError` | `unauthorized`; legacy `invalid_secret_access_key` |
+| `-32001` | `AuthenticationError` | `missing_credentials`, `invalid_access_key_id`, `malformed_secret_access_key`, `invalid_secret_access_key`, `unauthorized` |
 | `-32003` | `PermissionDeniedError` | `forbidden`; legacy `permission_denied` |
 | `-32004` | `ResourceNotFoundError` | `secret_not_found`, `environment_not_found`; legacy not-found aliases |
 | `-32009` | `ConflictError` / `AlreadyExistsError` | `conflict`, `secret_already_exists`, `environment_already_exists` |
@@ -399,8 +405,16 @@ human-output parsing, relative CLI names, and legacy credential variables
 with typed services, managed mode or an absolute caller-owned path, and the
 canonical `LOCKER_*` pair.
 
-- Authentication/permission errors: verify the full credential pair and its
-  project/environment scope.
+- `missing_credentials`: set both canonical credential variables.
+- `invalid_access_key_id`: use the UUIDv4 access key ID exactly as issued.
+- `malformed_secret_access_key`: use the complete canonical standard-base64
+  secret access key; do not use base64url, remove padding, or join wrapped
+  lines.
+- `invalid_secret_access_key`: the well-formed secret does not match the
+  access key ID. Replace the pair together rather than mixing rotated values.
+- `unauthorized`: the server rejected a well-formed pair; verify its active
+  status and project/environment scope.
+- Permission errors: verify the credential's project/environment scope.
 - `LockerCliDistributionUnavailableError`: check system time, HTTPS access to
   `files.locker.io`, and private ownership below
   `~/.locker/sdk-cli/dotnet`.

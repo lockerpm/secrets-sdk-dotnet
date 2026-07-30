@@ -36,6 +36,7 @@ internal sealed class ProtocolTransport : IDisposable
     };
 
     private readonly LockerClientOptions options;
+    private readonly Lazy<LockerCredentials> credentials;
     private readonly Lazy<LockerCliInstaller> managedInstaller;
     private readonly Func<CancellationToken, Task<string>> managedResolver;
 
@@ -49,6 +50,11 @@ internal sealed class ProtocolTransport : IDisposable
         Func<CancellationToken, Task<string>>? managedResolver)
     {
         this.options = options;
+        credentials = new Lazy<LockerCredentials>(
+            () => LockerCredentials.Resolve(
+                options.AccessKeyId,
+                options.SecretAccessKey),
+            LazyThreadSafetyMode.ExecutionAndPublication);
         managedInstaller = new Lazy<LockerCliInstaller>(
             () => new LockerCliInstaller(),
             LazyThreadSafetyMode.ExecutionAndPublication);
@@ -86,6 +92,7 @@ internal sealed class ProtocolTransport : IDisposable
         string? expectedCliVersion = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        _ = credentials.Value;
         if (maxRequestBytes <= 0
             || maxRequestBytes > LockerClientOptions.ProtocolRequestLimitBytes
             || maxResponseBytes <= 0
@@ -308,13 +315,15 @@ internal sealed class ProtocolTransport : IDisposable
 
     internal JObject CreateContext()
     {
+        var resolvedCredentials = credentials.Value;
         var context = new JObject
         {
             ["protocol_version"] = LockerSdkMetadata.ProtocolVersion,
             ["credentials"] = new JObject
             {
-                ["access_key_id"] = options.AccessKeyId,
-                ["secret_access_key"] = options.SecretAccessKey,
+                ["access_key_id"] = resolvedCredentials.AccessKeyId,
+                ["secret_access_key"] =
+                    resolvedCredentials.SecretAccessKey,
             },
             ["client"] = new JObject
             {

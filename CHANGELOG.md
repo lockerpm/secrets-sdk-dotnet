@@ -36,6 +36,9 @@
   metadata.
 - Run validation and release jobs in the official SDK 8.0.423 Linux image
   pinned by digest instead of depending on a host-installed Windows SDK.
+- Validate and normalize UUIDv4/base64 credentials before any CLI resolution
+  or execution, and expose the shared Locker authentication error kinds and
+  safe messages without leaking credential values.
 
 All notable changes to this project will be documented in this file.
 

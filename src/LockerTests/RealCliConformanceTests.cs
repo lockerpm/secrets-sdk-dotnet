@@ -22,8 +22,8 @@ public sealed class RealCliConformanceTests
             $"LOCKER_INTEGRATION_CLI does not exist: {binary}");
 
         using var client = new LockerClient(new LockerClientOptions(
-            accessKeyId: "protocol-test-access",
-            secretAccessKey: "protocol-test-secret",
+            accessKeyId: TestCredentials.AccessKeyId,
+            secretAccessKey: TestCredentials.SecretAccessKey,
             cliPath: binary,
             timeout: TimeSpan.FromSeconds(15)));
 

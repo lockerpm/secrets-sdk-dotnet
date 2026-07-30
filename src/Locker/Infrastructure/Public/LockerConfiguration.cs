@@ -124,12 +124,6 @@ public sealed class LockerConfiguration
     {
         var access = requestOptions?.AccessKeyId ?? AccessKeyId;
         var secret = requestOptions?.SecretAccessKey ?? SecretAccessKey;
-        if (string.IsNullOrWhiteSpace(access) || string.IsNullOrWhiteSpace(secret))
-        {
-            throw new InvalidOperationException(
-                $"Set {LockerClientFactory.AccessKeyIdEnvironmentVariable} and {LockerClientFactory.SecretAccessKeyEnvironmentVariable}.");
-        }
-
         var optionHeaders = requestOptions?.Headers?.ToDictionary(
             pair => pair.Key,
             pair => Convert.ToString(
@@ -138,8 +132,8 @@ public sealed class LockerConfiguration
             StringComparer.Ordinal);
 
         return new LockerClient(new LockerClientOptions(
-            access,
-            secret,
+            access ?? string.Empty,
+            secret ?? string.Empty,
             requestOptions?.CliPath,
             requestOptions?.ApiBase ?? ApiBase,
             optionHeaders ?? Headers,
