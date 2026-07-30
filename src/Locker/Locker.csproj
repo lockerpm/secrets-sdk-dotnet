@@ -2,7 +2,7 @@
   <PropertyGroup>
     <Description>Official Locker Secret .NET SDK using the Locker SDK protocol v1.</Description>
     <PackageId>lockersm</PackageId>
-    <Version>1.0.0</Version>
+    <Version>2.0.0</Version>
     <Authors>CyStack</Authors>
     <PackageTags>Locker;LockerSM;Secrets</PackageTags>
     <TargetFramework>net8.0</TargetFramework>

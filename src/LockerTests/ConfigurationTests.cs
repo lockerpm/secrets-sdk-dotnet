@@ -1,4 +1,5 @@
 using Locker;
+using System.Reflection;
 using System.Xml.Linq;
 using Xunit;
 
@@ -40,6 +41,25 @@ public sealed class ConfigurationTests
         Assert.Equal(
             expectedRuntimeVersion,
             LockerConfiguration.Instance.SdkVersion);
+    }
+
+    [Fact]
+    public void ProtocolFixtureTracksTheSdkReleaseVersion()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var expectedVersion =
+            System.Environment.GetEnvironmentVariable("LOCKER_SDK_VERSION")
+            ?? File.ReadAllText(
+                Path.Combine(repositoryRoot.FullName, "VERSION")).Trim();
+        var fixtureVersion = AssemblyName
+            .GetAssemblyName(FakeCliAssemblyPath)
+            .Version?
+            .ToString(3);
+
+        // Release CI globally overrides Version (for example, 2.0.1).
+        // The fake CLI must validate that exact build instead of a base-version
+        // literal, or every protocol test silently becomes release-line-specific.
+        Assert.Equal(expectedVersion, fixtureVersion);
     }
 
     [Fact]
@@ -184,6 +204,13 @@ public sealed class ConfigurationTests
                 $"LockerTestCli{extension}"));
         }
     }
+
+    private static string FakeCliAssemblyPath =>
+        Path.Combine(
+            Path.GetDirectoryName(FakeCliPath)
+                ?? throw new InvalidOperationException(
+                    "Test CLI output directory is unavailable."),
+            "LockerTestCli.dll");
 
     private static DirectoryInfo FindRepositoryRoot()
     {

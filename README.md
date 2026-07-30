@@ -1,7 +1,7 @@
 # Locker Secrets .NET SDK
 
-The official .NET client for Locker Passwords & Secrets. Version 1 uses the stable
-`locker.sdk` JSON-RPC protocol over `locker sdk`; it does not parse
+The official .NET client for Locker Passwords & Secrets. SDK 2.x uses the stable
+`locker.sdk` JSON-RPC protocol v1 over `locker sdk`; it does not parse
 human-facing CLI output and supports Locker Cloud and self-hosted deployments.
 
 ## Installation
@@ -344,7 +344,7 @@ future live suite must be separately gated by `LOCKER_RUN_LIVE_TESTS=1`.
 ## Automatic releases
 
 Every accepted two-parent merge into protected `main` releases exactly one
-patch version, beginning at `1.0.0`. The version is derived from the reviewed
+patch version, beginning at `2.0.0`. The version is derived from the reviewed
 first-parent history in `scripts/release-policy.json`; direct, squash, rebase,
 fast-forward, rewritten-baseline, and mispointed-tag histories fail closed.
 Concurrent pipelines wait for the exact immediate-predecessor tag, so patch
@@ -394,7 +394,7 @@ Report security issues privately to <contact@locker.io>.
 
 ## Migration, troubleshooting, and support
 
-Version 1 is the stable protocol-v1 boundary. Replace direct REST calls,
+SDK 2.x is the stable protocol-v1 boundary. Replace direct REST calls,
 human-output parsing, relative CLI names, and legacy credential variables
 with typed services, managed mode or an absolute caller-owned path, and the
 canonical `LOCKER_*` pair.

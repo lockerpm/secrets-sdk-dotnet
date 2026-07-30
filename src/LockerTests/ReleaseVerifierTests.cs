@@ -88,7 +88,7 @@ public sealed class ReleaseVerifierTests
             <dependency id="Newtonsoft.Json" version="13.0.4" exclude="Build,Analyzers" />
             """;
         var valid = Nuspec(reviewedDependencies);
-        Locker.ReleaseVerifier.Program.VerifyNuspec(valid, "1.0.0");
+        Locker.ReleaseVerifier.Program.VerifyNuspec(valid, "2.0.0");
 
         var injected = Nuspec(
             reviewedDependencies
@@ -99,7 +99,7 @@ public sealed class ReleaseVerifierTests
         Assert.Throws<Locker.ReleaseVerifier.ReleaseVerificationException>(
             () => Locker.ReleaseVerifier.Program.VerifyNuspec(
                 injected,
-                "1.0.0"));
+                "2.0.0"));
     }
 
     private static byte[] Nuspec(string dependencies) =>
@@ -109,7 +109,7 @@ public sealed class ReleaseVerifierTests
               <package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
                 <metadata>
                   <id>lockersm</id>
-                  <version>1.0.0</version>
+                  <version>2.0.0</version>
                   <license type="file">LICENSE</license>
                   <readme>README.md</readme>
                   <dependencies>

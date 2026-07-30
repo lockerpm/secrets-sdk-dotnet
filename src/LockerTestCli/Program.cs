@@ -1,5 +1,8 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Reflection;
+
+var expectedClientVersion = ResolveBuildVersion();
 
 if (args.Length == 1 && args[0] == "child-sleeper")
 {
@@ -130,11 +133,12 @@ if (context?["protocol_version"]?.Value<int>() != 1
     || credentials?["access_key_id"]?.Value<string>() != "test-access"
     || credentials?["secret_access_key"]?.Value<string>() != "test-secret"
     || client?["name"]?.Value<string>() != "locker-dotnet"
-    || client?["version"]?.Value<string>() != "1.0.0")
+    || client?["version"]?.Value<string>() != expectedClientVersion)
 {
     WriteError(id, -32602, "invalid_params", "Invalid method parameters");
     return 0;
 }
+
 var typedErrorsAdvertised = !string.Equals(
         fixtureMode,
         "locker-test-legacy-error-contract",
@@ -314,6 +318,28 @@ switch (method)
 }
 
 return 0;
+
+static string ResolveBuildVersion()
+{
+    var informationalVersion = Assembly.GetExecutingAssembly()
+        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+        ?.InformationalVersion
+        ?? throw new InvalidOperationException(
+            "Locker test CLI build version is unavailable.");
+    var metadataSeparator = informationalVersion.IndexOf(
+        '+',
+        StringComparison.Ordinal);
+    var version = metadataSeparator < 0
+        ? informationalVersion
+        : informationalVersion[..metadataSeparator];
+    return Version.TryParse(version, out var parsed)
+        && parsed.Revision < 0
+        && parsed.Build >= 0
+        && string.Equals(parsed.ToString(3), version, StringComparison.Ordinal)
+        ? version
+        : throw new InvalidOperationException(
+            "Locker test CLI build version is not canonical.");
+}
 
 static JObject Secret(string key) => new()
 {
