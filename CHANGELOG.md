@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0 - 2026-07-26
+## 2.0.0 - Unreleased
 
 - Replace the human CLI argv adapter with Locker SDK protocol v1.
 - Add typed clients for all secret and environment operations.
