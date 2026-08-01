@@ -80,8 +80,8 @@ if ($pipeline -match "(?i)\b(?:dotnet-install|choco\s+install|winget\s+install|I
 }
 foreach ($required in @(
     "auto_cancel:",
-    "- if: '`$CI_COMMIT_BRANCH'",
-    "CI_COMMIT_TAG =~ /^v(0|[1-9][0-9]*)",
+    'CI_PIPELINE_SOURCE == "merge_request_event"',
+    'CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH',
     "- when: never",
     $expectedImage,
     "cs_newgen_docker",
@@ -105,8 +105,11 @@ if (
 ) {
     throw "CI must use exactly one reviewed digest-pinned .NET SDK image"
 }
-if ($pipeline.Contains("CI_OPEN_MERGE_REQUESTS")) {
-    throw "open-merge-request scoped rules are not reviewed"
+if (
+    $pipeline.Contains("CI_OPEN_MERGE_REQUESTS") -or
+    $pipeline.Contains("- if: '`$CI_COMMIT_BRANCH'")
+) {
+    throw "plain feature-branch pushes must not create pipelines"
 }
 $resourceGroups = [Text.RegularExpressions.Regex]::Matches(
     $pipeline,
@@ -128,6 +131,7 @@ $validationRunner = Read-BoundedText -Path (
 foreach ($required in @(
     "verify-ci-supply-chain.ps1",
     "prepare-release.ps1",
+    "wait-release-predecessor.ps1",
     "publish-nuget.ps1",
     "create-gitlab-release.ps1",
     "--locked-mode",
@@ -148,7 +152,8 @@ $releaseRunner = Read-BoundedText -Path (
 foreach ($required in @(
     "verify-ci-supply-chain.ps1",
     "prepare-release.ps1",
-    "CI_COMMIT_REF_PROTECTED",
+    "wait-release-predecessor.ps1",
+    "verify-remote-tag.ps1",
     "--locked-mode",
     "-p:ContinuousIntegrationBuild=true",
     "verify-release.ps1",

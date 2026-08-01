@@ -3,13 +3,16 @@ stages:
   - release
 
 workflow:
-  # The release job creates vX.Y.Z. Never recursively start a tag pipeline
-  # for anything but a reviewed release tag.
+  # A release version is derived from first-parent history, so overlapping main
+  # pipelines must all finish instead of allowing a newer merge to cancel one.
   auto_cancel:
     on_new_commit: none
   rules:
-    - if: '$CI_COMMIT_TAG =~ /^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/'
-    - if: '$CI_COMMIT_BRANCH'
+    # The release job creates vX.Y.Z. Never recursively start a tag pipeline.
+    - if: '$CI_COMMIT_TAG'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - when: never
 
 default:
@@ -17,9 +20,8 @@ default:
   tags:
     - cs_newgen_docker
 
-# Protect main and v* tags (Allowed to create: Maintainers) in GitLab project
-# settings, plus the nuget environment, NUGET_API_KEY, and the independent
-# single-line LOCKER_CLI_RELEASE_PUBLIC_KEY.
+# Protect main, v* tags, the nuget environment, NUGET_API_KEY, and the
+# independent single-line LOCKER_CLI_RELEASE_PUBLIC_KEY in GitLab settings.
 validate:
   stage: validate
   variables:
@@ -33,14 +35,12 @@ validate:
     expire_in: 7 days
     paths:
       - artifacts/
-  rules:
-    - if: '$CI_COMMIT_BRANCH'
 
-release:
+auto-release:
   stage: release
   interruptible: false
-  # Configure this resource group once with process_mode=oldest_first, so two
-  # tags pushed close together still publish to NuGet one at a time.
+  # Configure this resource group once with process_mode=oldest_first.
+  # The predecessor-tag gate remains the fail-closed release-order invariant.
   resource_group: lockersm-nuget
   retry:
     max: 2
@@ -70,4 +70,5 @@ release:
       - release.env
     expire_in: 30 days
   rules:
-    - if: '$CI_COMMIT_TAG =~ /^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/'
+    # Keep this job visible and failing if branch protection is misconfigured.
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'

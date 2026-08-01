@@ -58,6 +58,9 @@ Push-Location $repositoryRoot
 try {
     Invoke-CiScript -Name "verify-ci-supply-chain.ps1"
     Invoke-CiScript -Name "prepare-release.ps1" -ArgumentList @("-SelfTest")
+    Invoke-CiScript `
+        -Name "wait-release-predecessor.ps1" `
+        -ArgumentList @("-SelfTest")
     Invoke-CiScript -Name "publish-nuget.ps1" -ArgumentList @("-SelfTest")
     Invoke-CiScript `
         -Name "create-gitlab-release.ps1" `

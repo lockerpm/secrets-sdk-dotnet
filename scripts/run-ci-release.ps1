@@ -75,6 +75,9 @@ try {
 
     if ($SelfTest) {
         Invoke-CiScript -Name "prepare-release.ps1" -ArgumentList @("-SelfTest")
+        Invoke-CiScript `
+            -Name "wait-release-predecessor.ps1" `
+            -ArgumentList @("-SelfTest")
         Invoke-CiScript -Name "publish-nuget.ps1" -ArgumentList @("-SelfTest")
         Invoke-CiScript `
             -Name "create-gitlab-release.ps1" `
@@ -84,22 +87,24 @@ try {
     }
 
     if ($env:CI_COMMIT_REF_PROTECTED -cne "true") {
-        throw "release tags must be protected"
+        throw "default branch must be protected before release"
+    }
+    if ($env:CI_DEFAULT_BRANCH -cne "main") {
+        throw "main must remain the GitLab default branch"
     }
     $null = Require-Environment -Name "NUGET_API_KEY"
     $publicKey = Require-Environment -Name "LOCKER_CLI_RELEASE_PUBLIC_KEY"
     $commit = Require-Environment -Name "CI_COMMIT_SHA"
-    $tag = Require-Environment -Name "CI_COMMIT_TAG"
     $releasedAt = Require-Environment -Name "CI_COMMIT_TIMESTAMP"
     $releaseTitle = Require-Environment -Name "CI_COMMIT_TITLE"
 
     Invoke-Checked `
         -FilePath "git" `
-        -ArgumentList @("fetch", "--force", "origin", "main") `
-        -Label "release main fetch"
+        -ArgumentList @("fetch", "--force", "--tags", "origin") `
+        -Label "release tag fetch"
     Invoke-CiScript `
         -Name "prepare-release.ps1" `
-        -ArgumentList @("-Tag", $tag, "-Commit", $commit, "-DotEnv", "release.env")
+        -ArgumentList @("-Commit", $commit, "-DotEnv", "release.env")
 
     $requiredDotEnvNames = [Collections.Generic.HashSet[string]]::new(
         [StringComparer]::Ordinal
@@ -107,6 +112,9 @@ try {
     foreach ($name in @(
         "LOCKER_SDK_VERSION",
         "LOCKER_RELEASE_TAG",
+        "LOCKER_PREDECESSOR_REQUIRED",
+        "LOCKER_PREDECESSOR_TAG",
+        "LOCKER_PREDECESSOR_COMMIT",
         "SOURCE_DATE_EPOCH"
     )) {
         $null = $requiredDotEnvNames.Add($name)
@@ -136,6 +144,33 @@ try {
     if ($seenDotEnvNames.Count -ne $requiredDotEnvNames.Count) {
         throw "release dotenv is incomplete"
     }
+
+    if ($env:LOCKER_PREDECESSOR_REQUIRED -ceq "0") {
+        Invoke-CiScript `
+            -Name "wait-release-predecessor.ps1" `
+            -ArgumentList @("-Required", "0")
+    } elseif ($env:LOCKER_PREDECESSOR_REQUIRED -ceq "1") {
+        Invoke-CiScript `
+            -Name "wait-release-predecessor.ps1" `
+            -ArgumentList @(
+                "-Required",
+                "1",
+                "-Tag",
+                $env:LOCKER_PREDECESSOR_TAG,
+                "-Commit",
+                $env:LOCKER_PREDECESSOR_COMMIT
+            )
+    } else {
+        throw "invalid release predecessor requirement"
+    }
+    Invoke-CiScript `
+        -Name "verify-remote-tag.ps1" `
+        -ArgumentList @(
+            "-Tag",
+            $env:LOCKER_RELEASE_TAG,
+            "-Commit",
+            $commit
+        )
 
     Invoke-Checked `
         -FilePath "dotnet" `
