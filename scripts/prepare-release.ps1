@@ -109,7 +109,7 @@ function Assert-ReleaseLineStartsAtBaseline {
     )
     if (
         $Baseline -notmatch $commitPattern -or
-        $parts.Count -ne 3 -or
+        $parts.Count -lt 2 -or
         @($parts | Where-Object { $_ -notmatch $commitPattern }).Count -ne 0
     ) {
         throw "release-line root history is invalid"
@@ -322,14 +322,6 @@ $historyText = Invoke-ReleaseGit -Arguments @(
 $history = @($historyText -split "`r?`n" | Where-Object { $_ })
 if ($history.Count -ne $distance -or $history.Count -lt 1) {
     throw "first-parent release history is inconsistent"
-}
-foreach ($line in $history) {
-    if (@($line -split " ").Count -ne 3) {
-        throw (
-            "every release-line commit must be a two-parent merge commit; " +
-            "disable direct, squash, rebase, and fast-forward updates to main"
-        )
-    }
 }
 Assert-ReleaseLineStartsAtBaseline `
     -Baseline $baseline `

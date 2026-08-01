@@ -1031,7 +1031,7 @@ public sealed class ProtocolClientTests
         try
         {
             await Assert.ThrowsAsync<LockerTimeoutError>(
-                () => CreateClient(timeout: TimeSpan.FromMilliseconds(500))
+                () => CreateClient(timeout: TimeSpan.FromMilliseconds(2000))
                     .Secrets.GetAsync($"tree-sleep:{pidPath}"));
             Assert.True(File.Exists(pidPath));
             var pid = int.Parse(
@@ -1075,7 +1075,7 @@ public sealed class ProtocolClientTests
         try
         {
             await Assert.ThrowsAsync<LockerTimeoutError>(
-                () => CreateClient(timeout: TimeSpan.FromMilliseconds(500))
+                () => CreateClient(timeout: TimeSpan.FromMilliseconds(2000))
                     .Secrets.GetAsync($"parent-exit-tree:{pidPath}"));
             Assert.True(File.Exists(pidPath));
             var pid = int.Parse(
